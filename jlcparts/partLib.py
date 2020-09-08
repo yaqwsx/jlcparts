@@ -50,6 +50,13 @@ class PartLibrary:
         self.lib[cat][subcat][component["lcsc"]] = component
         self.index[component["lcsc"]] = (cat, subcat)
 
+    def categories(self):
+        """
+        Return a dict with list of available categories in form category ->
+        [subcategory]
+        """
+        return { category: subcategories.keys() for category, subcategories in self.lib.items()}
+
     def save(self, filename):
         with open(filename, "w") as f:
             json.dump(self.lib, f)
@@ -82,7 +89,7 @@ def extractCsrfToken(pageText):
         return None
     return m.group(1)
 
-def getLcscExtra(lcscNumber, token=None, cookies=None):
+def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
     if token is None or cookies is None:
         token, cookies = obtainCsrfTokenAndCookies()
     headers = {
@@ -112,20 +119,31 @@ def getLcscExtra(lcscNumber, token=None, cookies=None):
                         })
     try:
         if "exceeded the maximum number of attempts" in res.text or res.json()["code"] == 429:
+            if onPause:
+                onPause()
             print("Too many requests! Waiting")
             time.sleep(10)
-            return getLcscExtra(lcscNumber, token=None, cookies=None)
+            return getLcscExtra(lcscNumber, token=None, cookies=None, onPause=onPause)
         results = res.json()["result"]["data"]
-        if len(results) == 0:
+        if len(results) != 1:
             print(f"Warning, {lcscNumber} not found")
             return {}, token, cookies
         component = res.json()["result"]["data"][0]
-        assert(component["number"] == lcscNumber)
+        if component["number"] != lcscNumber:
+            print(f"Warning, {lcscNumber} not found")
+            return {}, token, cookies
         return component, token, cookies
     except Exception as e:
-        print(e)
         print(f"  Cannot parse response for component {lcscNumber}")
-        print(res.text)
+        print(f"{type(e)}")
+        print(f"  Error: {e}")
+        print(f"  Response: {res.text}")
+        if onPause:
+            onPause()
+        if "Bad Gateway" in res.text:
+            print("Bad gateway, try again in a second")
+            time.sleep(5)
+            return getLcscExtra(lcscNumber, token=None, cookies=None, onPause=onPause)
     return None, token, cookies
 
 
@@ -144,41 +162,4 @@ def loadJlcTable(file):
                 "datasheet": x["Datasheet"],
                 "stock": int(x["Stock"]),
                 "price": parsePrice(x["Price"])
-            } for x in reader }
-
-@click.command()
-@click.argument("source", type=click.Path(dir_okay=False, exists=True))
-@click.argument("output", type=click.Path(dir_okay=False, writable=True))
-@click.option("--cache", type=click.Path(dir_okay=False, exists=True),
-    help="Previously generated JSON file serving as a cache for LCSC informatioon")
-def run(cache, source, output):
-    cacheLib = PartLibrary(cache)
-    lib = PartLibrary()
-
-    with open(source, newline="") as f:
-        jlcTable = loadJlcTable(f)
-
-    # Make copy of the output in case we make a mistake
-    shutil.copy(output, output + ".bak")
-
-    token, cookies = obtainCsrfTokenAndCookies()
-    total = len(jlcTable)
-    for i, component in enumerate(jlcTable.values()):
-        print(f"Processing {component['lcsc']} ({i+1}/{total})")
-        cached = cacheLib.getComponent(component["lcsc"])
-        if not cached:
-            print(f"  Not in cache, fetching...")
-            extra, token, cookies = getLcscExtra(component["lcsc"], token, cookies)
-            if extra is None:
-                sys.exit("Invalid extra data fetched, aborting")
-        else:
-            extra = cached["extra"]
-        component["extra"] = extra
-        lib.addComponent(component)
-        if i % 10 == 0:
-            print(f"Automatically saving")
-            lib.save(output)
-    lib.save(output)
-
-if __name__ == "__main__":
-    run()
+            }   for x in reader }

@@ -1,7 +1,15 @@
 import React from 'react';
+
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { fas } from '@fortawesome/free-solid-svg-icons'
+import { far } from '@fortawesome/free-regular-svg-icons'
+import { fab } from '@fortawesome/free-brands-svg-icons'
+
 import './main.css';
 import { updateComponentLibrary, checkForComponentLibraryUpdate } from './db'
 import { ComponentOverview } from './componentTable'
+
+library.add(fas, far, fab);
 
 class UpdateBar extends React.Component {
   constructor(props) {
@@ -97,7 +105,7 @@ class App extends React.Component {
   }
 
   onUpdateFinish = () => {
-    // this.setState({"updating": false});
+    this.setState({"updating": false});
   }
 
   triggerUpdate = () => {

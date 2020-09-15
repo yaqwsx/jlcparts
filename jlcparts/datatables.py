@@ -25,6 +25,16 @@ def normalizeAttribute(key, value):
     """
     return value
 
+def pullExtraAttributes(component):
+    """
+    Turn common properties (e.g., base/extended) into attributes. Return them as
+    a dictionary
+    """
+    return {
+        "Basic/Extended": "Basic" if component["basic"] else "Extended",
+        "Package": component["package"]
+    }
+
 def extractComponent(component, schema):
     propertyList = []
     for schItem in schema:
@@ -33,8 +43,21 @@ def extractComponent(component, schema):
             if isinstance(attr, list):
                 # LCSC return empty attributes as a list, not dictionary
                 attr = {}
+            attr.update(pullExtraAttributes(component))
             attr = { key: normalizeAttribute(key, val) for key, val in attr.items()}
             propertyList.append(attr)
+        elif schItem == "images":
+            images = component.get("extra", {}).get("images", {})
+            if len(images) > 0:
+                images = images[0]
+            else:
+                images = None
+            propertyList.append(images)
+        elif schItem == "url":
+            url = component.get("extra", {}).get("url", None)
+            if url is not None:
+                url = "https://lcsc.com" + url
+            propertyList.append(url)
         elif schItem in component:
             propertyList.append(component[schItem])
         else:
@@ -42,8 +65,8 @@ def extractComponent(component, schema):
     return propertyList
 
 def buildDatatable(components):
-    schema = ["lcsc", "mfr", "package", "joints", "manufacturer", "basic",
-              "description", "datasheet", "price", "attributes"]
+    schema = ["lcsc", "mfr", "joints", "manufacturer", "description",
+              "datasheet", "price", "images", "url", "attributes"]
     return {
         "schema": schema,
         "components": [extractComponent(x, schema) for x in components.values()]
@@ -78,7 +101,7 @@ def buildtables(library, outdir):
     for catName, subcats in lib.categories().items():
         subcatIndex = {}
         for subcatName in subcats:
-            filebase = re.sub('[^A-Za-z0-9]+', '', catName + subcatName)
+            filebase = re.sub('[^A-Za-z0-9]', '_', catName + subcatName)
 
             dataTable = buildDatatable(lib.lib[catName][subcatName])
             dataTable.update({"category": catName, "subcategory": subcatName})
@@ -87,6 +110,7 @@ def buildtables(library, outdir):
             stockTable = buildStocktable(lib.lib[catName][subcatName])
             stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
 
+            assert(subcatName not in subcatIndex)
             subcatIndex[subcatName] = {
                 "sourcename": filebase,
                 "datahash": dataHash,

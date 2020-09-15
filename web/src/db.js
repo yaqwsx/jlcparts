@@ -104,7 +104,7 @@ async function fetchJson(path, errorIntro) {
     }
     let contentType = response.headers.get('Content-Type');
     if (!contentType || contentType.indexOf("application/json") === -1) {
-        throw Error(errorIntro + `Response is not JSON, but ${contentType}`);
+        throw Error(errorIntro + `Response is not JSON, but ${contentType}: ` + path);
     }
     return await response.json();
 }
@@ -129,7 +129,9 @@ async function updateCategories(categoryIndex, onNew, onUpdateExisting, onUpdate
                 .first(async category => {
                     if (category === undefined) {
                         category = await onNew(categoryName, subcategoryName, attributes);
-                    } else if (attributes["datahash"] !== category["datahash"]) {
+                    } else if (attributes["datahash"] !== category["datahash"] ||
+                               attributes["sourcename"] !== category["sourcename"])
+                    {
                         category = await onUpdateExisting(category, attributes);
                     } else if (attributes["stockhash"] !== category["stockhash"]) {
                         category = await onUpdateStock(category);

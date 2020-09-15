@@ -19,6 +19,9 @@ module.exports = {
       'full': '100%',
     }
   },
+  variants: {
+    backgroundColor: ['responsive', 'odd', 'even', 'hover', 'focus'],
+  },
   future: {
     removeDeprecatedGapUtilities: true,
     purgeLayersByDefault: true

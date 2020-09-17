@@ -1,10 +1,20 @@
 import { db } from "./db";
 import React from "react";
-import produce from "immer";
+import { produce, enableMapSet } from "immer";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LazyLoadImage } from 'react-lazy-load-image-component';
-import {CopyToClipboard} from 'react-copy-to-clipboard';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
+
+enableMapSet();
+
+function universalComparator(a, b) {
+    if (typeof(a) === "number" && typeof(b) === "number")
+        return a - b;
+    if (typeof(a) === "string" && typeof(b) === "string")
+        return a.localeCompare(b);
+    return a.toString().localeCompare(b.toString());
+}
 
 function parseImageSize(imageSizeStr) {
     let sizes = imageSizeStr.split("x");
@@ -89,7 +99,8 @@ export class ComponentOverview extends React.Component {
             "categories": [],
             "activeProperties": {},
             "expectedComponentsVersion": 0,
-            "componentsVersion": 0
+            "componentsVersion": 0,
+            "tableIncludedProperties": new Set()
         };
     }
 
@@ -198,6 +209,15 @@ export class ComponentOverview extends React.Component {
         }));
     }
 
+    handleIncludeInTable = (property, value) => {
+        this.setState(produce(this.state, draft => {
+            if (value)
+                draft["tableIncludedProperties"].add(property);
+            else
+                draft["tableIncludedProperties"].delete(property);
+        }));
+    }
+
     filterComponents(components, activeProperties) {
         return components.filter(component => {
             for (const property in activeProperties) {
@@ -220,7 +240,10 @@ export class ComponentOverview extends React.Component {
             <PropertySelect
                 properties={this.collectProperties(this.state.components)}
                 values={this.state.activeProperties}
-                onChange={this.handleActivePropertiesChange}/>
+                onChange={this.handleActivePropertiesChange}
+                onTableInclude={this.handleIncludeInTable}
+                tableIncluded={Array.from(this.state.tableIncludedProperties)}
+                />
             <QuantitySelect/>
             </>;
 
@@ -311,6 +334,21 @@ export class ComponentOverview extends React.Component {
                 comparator: (a, b) => (a.price[0].price - b.price[0].price)
             },
         ];
+        for (let attribute of this.state.tableIncludedProperties) {
+            let getter = x => {
+                if (attribute in x.attributes)
+                    return x.attributes[attribute];
+                return "";
+            }
+
+            header.push( {
+                name: attribute,
+                sortable: true,
+                displayGetter: getter,
+                comparator: (a, b) => universalComparator(getter(a), getter(b))
+            });
+        }
+
         var t0 = performance.now()
         let filteredComponents = this.filterComponents(this.state.components, this.state.activeProperties);
         var t1 = performance.now()
@@ -490,6 +528,9 @@ class SelectBox extends React.Component {
                             </option>;
                     })}
                 </select>
+                <div className="flex-none">
+                    {this.props.children}
+                </div>
             </div>
         </>;
     }
@@ -508,7 +549,15 @@ class PropertySelect extends React.Component {
                         value={this.props.values[item["property"]]}
                         onChange={value => {
                             this.props.onChange(item["property"], value); } }
-                    />;
+                    >
+                        <input
+                            className="mr-2 leading-tight"
+                            type="checkbox"
+                            checked={this.props.tableIncluded.includes(item["property"])}
+                            onChange={e => {
+                                this.props.onTableInclude(item["property"], e.target.checked); } } />
+                        Show table column
+                    </SelectBox>;
                 })}
             </div>
         </div>

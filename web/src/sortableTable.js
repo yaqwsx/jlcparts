@@ -82,7 +82,7 @@ export class SortableTable extends React.Component {
     showMore = () => {
         this.setState(produce(this.state, draft => {
             if (this.state.visibleItems < this.props.data.length)
-                draft.visibleItems += 100;
+                draft.visibleItems += 50;
         }));
     }
 

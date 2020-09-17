@@ -8,7 +8,7 @@ return await navigator.storage && navigator.storage.persist &&
 export const db = new Dexie('jlcparts');
 db.version(1).stores({
     settings: 'key',
-    components: 'lcsc, category, mfr, package, manufacturer, description, stock',
+    components: 'lcsc, category, mfr, *indexWords',
     categories: 'id++,[category+subcategory], subcategory, category'
 });
 

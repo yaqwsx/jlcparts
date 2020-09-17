@@ -36,6 +36,31 @@ function sortImagesSrcBySize(images) {
     return imgCollection;
 }
 
+function getQuantityPrice(quantity, pricelist) {
+    for (let pricepoint of pricelist) {
+        if (quantity >= pricepoint.qFrom && (quantity <= pricepoint.qTo || !pricepoint.qTo))
+            return pricepoint.price;
+    }
+    return pricelist[0].price;
+}
+
+function fullTextComponentsFilter(component, words) {
+    let text = componentText(component);
+    for (let word of words) {
+        if (!text.includes(word))
+            return false;
+    }
+    return true;
+}
+
+function componentText(component) {
+    return(
+        component.lcsc + " " +
+        component.mfr + " " +
+        component.description
+    ).toLocaleLowerCase();
+}
+
 function Spinbox() {
     return <div className="w-full text-center">
         <svg className="animate-spin -ml-1 m-8 h-5 w-5 text-black mx-auto inline-block"
@@ -98,9 +123,11 @@ export class ComponentOverview extends React.Component {
             "components": [],
             "categories": [],
             "activeProperties": {},
+            "requiredProperties": new Set(),
             "expectedComponentsVersion": 0,
             "componentsVersion": 0,
-            "tableIncludedProperties": new Set()
+            "tableIncludedProperties": new Set(),
+            "quantity": 1
         };
     }
 
@@ -152,6 +179,8 @@ export class ComponentOverview extends React.Component {
 
         let sortedProperties = [];
         for (const property in properties) {
+            if (properties[property].size <= 1)
+                continue;
             let values = [...properties[property]].map(x => {
                 return {"key": x, "value": x};
             });
@@ -218,17 +247,34 @@ export class ComponentOverview extends React.Component {
         }));
     }
 
-    filterComponents(components, activeProperties) {
+    handlePropertyRequired = (property, value) => {
+        this.setState(produce(this.state, draft => {
+            if (value)
+                draft["requiredProperties"].add(property);
+            else
+                draft["requiredProperties"].delete(property);
+        }));
+    }
+
+    filterComponents(components, activeProperties, requiredProperties) {
         return components.filter(component => {
             for (const property in activeProperties) {
                 let attributes = component["attributes"];
-                if (!(property in attributes))
-                    continue;
+                if (!(property in attributes)) {
+                    if (requiredProperties.has(property))
+                        return false;
+                    else
+                        continue
+                }
                 if (!(activeProperties[property].includes(attributes[property])))
                     return false;
             }
             return true;
         });
+    }
+
+    handleQuantityChange = q => {
+        this.setState({quantity: q});
     }
 
     render() {
@@ -243,8 +289,12 @@ export class ComponentOverview extends React.Component {
                 onChange={this.handleActivePropertiesChange}
                 onTableInclude={this.handleIncludeInTable}
                 tableIncluded={Array.from(this.state.tableIncludedProperties)}
+                requiredProperties={Array.from(this.state.requiredProperties)}
+                onPropertyRequired={this.handlePropertyRequired}
                 />
-            <QuantitySelect/>
+            <QuantitySelect
+                onChange={this.handleQuantityChange}
+                value={this.state.quantity}/>
             </>;
 
         if (this.state.expectedComponentsVersion !== this.state.componentsVersion) {
@@ -330,8 +380,21 @@ export class ComponentOverview extends React.Component {
             {
                 name: "Price",
                 sortable: true,
-                displayGetter: x => x.price[0].price.toString() + " USD",
-                comparator: (a, b) => (a.price[0].price - b.price[0].price)
+                displayGetter: x => {
+                    let price = getQuantityPrice(this.state.quantity, x.price)
+                    let unitPrice = Math.round((price + Number.EPSILON) * 1000) / 1000;
+                    let sumPrice = Math.round((price * this.state.quantity + Number.EPSILON) * 1000) / 1000;
+                    return <>
+                        {`${unitPrice}$/unit`}
+                        <br/>
+                        {`${sumPrice}$/${this.state.quantity} units`}
+                    </>
+                },
+                comparator: (a, b) => {
+                    let aPrice = getQuantityPrice(this.state.quantity, a.price);
+                    let bPrice = getQuantityPrice(this.state.quantity, b.price);
+                    return aPrice - bPrice
+                }
             },
         ];
         for (let attribute of this.state.tableIncludedProperties) {
@@ -350,7 +413,8 @@ export class ComponentOverview extends React.Component {
         }
 
         var t0 = performance.now()
-        let filteredComponents = this.filterComponents(this.state.components, this.state.activeProperties);
+        let filteredComponents = this.filterComponents(this.state.components,
+            this.state.activeProperties, this.state.requiredProperties);
         var t1 = performance.now()
         console.log("Filtering took ", t1 - t0, " ms");
 
@@ -443,45 +507,126 @@ function ExpandedComponent(props) {
 class CategoryFilter extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {}
+        this.state = {
+            categories: {},
+            allCategories: false,
+            searchString: ""
+        }
     }
 
     collectActiveCategories = () => {
         let categories = [];
-        for (const key in this.state) {
-            categories = categories.concat(this.state[key]);
+        for (const key in this.state.categories) {
+            categories = categories.concat(this.state.categories[key]);
         }
         return categories;
     }
 
+    notifyParent = () => {
+        var t0 = performance.now();
+        let version = this.props.onAnnounceChange();
+        this.components().then(components => {
+            var t1 = performance.now();
+            console.log("Select took", t1 - t0, "ms");
+            this.props.onChange(version, components);
+        });
+    }
+
     // Return query containing components based on current categories and
     // full-text search
-    componentQuery() {
-        return db.components.where("category").anyOf(this.collectActiveCategories());
+    async components() {
+        let query;
+        if (this.state.allCategories)
+            query = db.components;
+        else
+            query = db.components.where("category").anyOf(this.collectActiveCategories());
+        let components = await query.toArray();
+        if (this.state.searchString.length === 0)
+            return components;
+
+        let words = this.state.searchString.split(/\s+/)
+            .filter(x => x.length > 0)
+            .map(x => x.toLocaleLowerCase());
+        if (words.length === 0)
+            return components;
+        console.log("Starting search...");
+        let t0 = performance.now()
+        let filtered = components.filter( component => fullTextComponentsFilter(component, words));
+        let t1 = performance.now();
+        console.log("Search took", t1 - t0, "ms");
+        return filtered;
     }
 
     handleCategoryChange = (category, value) => {
-        var t0 = performance.now();
-        this.setState({[category]: value.map(n => { return parseInt(n)})}, () => {
-            let version = this.props.onAnnounceChange();
-            this.componentQuery().toArray().then(components => {
-                var t1 = performance.now();
-                console.log("Select took", t1 - t0, "ms");
-                this.props.onChange(version, components);
-            })
+        console.log("Category change");
+        this.setState(produce(this.state, draft => {
+            draft.categories[category] = value.map(n => { return parseInt(n)});
+            draft.allCategories = false;
+        }), this.notifyParent);
+    }
+
+    selectAll = (state) => {
+        for (let category of this.props.categories) {
+            state.categories[category.category] = category.subcategories.map( x => x.key );
+        }
+        state.allCategories = true;
+    }
+
+    handleSelectAll = () => {
+        this.setState(produce(this.state, this.selectAll), this.notifyParent);
+    }
+
+    handleSelectNone = () => {
+        this.setState(produce(this.state, draft => {
+            for (let key in draft.categories) {
+                draft.categories[key] = [];
+            }
+            draft.allCategories = false;
+        }), this.notifyParent);
+    }
+
+    handleFulltextChange = (e) => {
+        this.setState(produce(this.state, draft => {
+            draft.searchString = e.target.value;
+            if (!draft.allCategories && this.collectActiveCategories().length === 0)
+                this.selectAll(draft);
+        }), () => {
+            console.log("Before: ", this.searchTimeout);
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(this.notifyParent(), 3000);
+            console.log("After: ", this.searchTimeout);
         });
     }
 
     render() {
         return <div className="w-full bg-blue-200">
-            <h3>Select category</h3>
+            <div className="flex">
+                <h3 className="block flex-1">Select category</h3>
+                <button className="block flex-none p-3 font-bold" onClick={this.handleSelectAll}>
+                    Select all categories
+                </button>
+
+                <button className="block flex-none p-3 font-bold" onClick={this.handleSelectNone}>
+                    Select none
+                </button>
+            </div>
+            <div className="w-full flex p-2">
+                <label className="flex-none block py-2 mx-2">
+                    Contains all words:
+                </label>
+                <input type="text"
+                    className="block flex-1 bg-gray-200 appearance-none border-2 border-gray-200 rounded w-full
+                                py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
+                                focus:border-purple-500"
+                    onChange={this.handleFulltextChange}/>
+            </div>
             <div className="flex flex-wrap items-stretch">
                 {this.props.categories.map(item => {
                     return <SelectBox
                         key={item["category"]}
                         name={item["category"]}
                         options={item["subcategories"]}
-                        value={this.state[item["category"]]}
+                        value={this.state.categories[item["category"]]}
                         onChange={value => {
                             this.handleCategoryChange(item["category"], value); } }/>;
                 })}
@@ -550,13 +695,24 @@ class PropertySelect extends React.Component {
                         onChange={value => {
                             this.props.onChange(item["property"], value); } }
                     >
-                        <input
-                            className="mr-2 leading-tight"
-                            type="checkbox"
-                            checked={this.props.tableIncluded.includes(item["property"])}
-                            onChange={e => {
-                                this.props.onTableInclude(item["property"], e.target.checked); } } />
-                        Show table column
+                        <div className="w-full">
+                            <input
+                                className="mr-2 leading-tight"
+                                type="checkbox"
+                                checked={this.props.tableIncluded.includes(item["property"])}
+                                onChange={e => {
+                                    this.props.onTableInclude(item["property"], e.target.checked); } } />
+                            Show table column
+                        </div>
+                        <div className="w-full">
+                            <input
+                                className="mr-2 leading-tight"
+                                type="checkbox"
+                                checked={this.props.requiredProperties.includes(item["property"])}
+                                onChange={e => {
+                                    this.props.onPropertyRequired(item["property"], e.target.checked); } } />
+                            Required
+                        </div>
                     </SelectBox>;
                 })}
             </div>
@@ -567,7 +723,15 @@ class PropertySelect extends React.Component {
 class QuantitySelect extends React.Component {
     render() {
         return <div className="w-full bg-yellow-200">
-            <h3>Specify quantity (for price point selection)</h3>
+            <p>
+                Specify quantity (for price point selection)
+                <input
+                    type="number"
+                    min={1}
+                    onChange={e => this.props.onChange(e.target.value)}
+                    value={this.props.value}
+                    />
+            </p>
         </div>
     }
 }

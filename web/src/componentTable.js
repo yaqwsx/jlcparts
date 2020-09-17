@@ -1,7 +1,9 @@
 import { db } from "./db";
 import React from "react";
 import produce from "immer";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LazyLoadImage } from 'react-lazy-load-image-component';
+import {CopyToClipboard} from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
 
 function parseImageSize(imageSizeStr) {
@@ -85,7 +87,9 @@ export class ComponentOverview extends React.Component {
         this.state = {
             "components": [],
             "categories": [],
-            "activeProperties": {}
+            "activeProperties": {},
+            "expectedComponentsVersion": 0,
+            "componentsVersion": 0
         };
     }
 
@@ -155,8 +159,19 @@ export class ComponentOverview extends React.Component {
         return sortedProperties;
     }
 
-    handleComponentsChange = (components) => {
+    handleStartComponentsChange = () => {
+        let newVersion = this.state.componentsVersion + 1;
         this.setState(produce(this.state, draft => {
+            draft["expectedComponentsVersion"] = newVersion;
+        }));
+        return newVersion;
+    }
+
+    handleComponentsChange = (version, components) => {
+        if (version !== this.state.expectedComponentsVersion)
+            return;
+        this.setState(produce(this.state, draft => {
+            draft["componentsVersion"] = version;
             draft["components"] = components;
             // Update properties filters
             var t0 = performance.now();
@@ -170,9 +185,7 @@ export class ComponentOverview extends React.Component {
                 }
             }
             for (const property in properties) {
-                if (!(property in draft["activeProperties"])) {
-                    draft["activeProperties"][property] = properties[property];
-                }
+                draft["activeProperties"][property] = properties[property];
             }
             var t1 = performance.now();
             console.log("Active categories took ", t1 - t0, "ms" );
@@ -199,29 +212,66 @@ export class ComponentOverview extends React.Component {
     }
 
     render() {
+        let filterComponents = <>
+            <CategoryFilter
+                categories={this.state.categories}
+                onChange={this.handleComponentsChange}
+                onAnnounceChange={this.handleStartComponentsChange}/>
+            <PropertySelect
+                properties={this.collectProperties(this.state.components)}
+                values={this.state.activeProperties}
+                onChange={this.handleActivePropertiesChange}/>
+            <QuantitySelect/>
+            </>;
+
+        if (this.state.expectedComponentsVersion !== this.state.componentsVersion) {
+            return <>
+                    {filterComponents}
+                    <Spinbox/>
+                </>;
+        }
+
         let header = [
             {
-                name: "MFR",
+                name: "MFR (click for datasheet)",
                 sortable: true,
-                displayGetter: x => x.mfr,
-                comparator: (a, b) => a.mfr.localeCompare(b.mfr)
+                displayGetter: x => <a href={x.datasheet}>
+                    <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
+                </a>,
+                comparator: (a, b) => a.mfr.localeCompare(b.mfr),
+                className: "px-1"
             },
             {
                 name: "LCSC",
                 sortable: true,
                 displayGetter: x => {
-                    return <a href={x.url} className="underline text-blue-600">
-                        {x.lcsc}
-                    </a>
+                    return <>
+                        <a href={x.url} className="underline text-blue-600">
+                            {x.lcsc}
+                        </a>
+                        &nbsp;
+                        <CopyToClipboard text={x.lcsc}>
+                            <button className="py-2 px-4" onClick={e => e.stopPropagation()}>
+                                <FontAwesomeIcon icon="clipboard"/>
+                            </button>
+                        </CopyToClipboard>
+                    </>
                 },
                 comparator: (a, b) => a.lcsc.localeCompare(b.lcsc)
+            },
+            {
+                name: "Basic/Extended",
+                sortable: true,
+                displayGetter: x => x.attributes["Basic/Extended"][0],
+                comparator: (a, b) => a.attributes["Basic/Extended"].localeCompare(b.attributes["Basic/Extended"]),
+                className: "text-center"
             },
             {
                 name: "Image",
                 sortable: false,
                 displayGetter: x => {
-                    var imgSrc = "";
-                    var zoomImgSrc = "";
+                    var imgSrc = "/brokenimage.svg";
+                    var zoomImgSrc = "/brokenimage.svg";
                     if (x.images && Object.keys(x.images).length > 0) {
                         let sources = sortImagesSrcBySize(x.images);
                         imgSrc = sources[0][1];
@@ -267,27 +317,86 @@ export class ComponentOverview extends React.Component {
         console.log("Filtering took ", t1 - t0, " ms");
 
         return <>
-            <CategoryFilter
-                categories={this.state.categories}
-                onChange={this.handleComponentsChange}/>
-            <PropertySelect
-                properties={this.collectProperties(this.state.components)}
-                values={this.state.activeProperties}
-                onChange={this.handleActivePropertiesChange}/>
-            <QuantitySelect/>
-
+            {filterComponents}
             {filteredComponents.length
-                ?   <SortableTable
-                        className="w-full"
-                        header={header}
-                        data={filteredComponents}
-                        rowClassName="bg-white odd:bg-gray-200"
-                        keyFun={item => item.lcsc}/>
+                ?  <>
+                        <p className="w-full">Components matching query: {filteredComponents.length}</p>
+                        <SortableTable
+                            className="w-full"
+                            header={header}
+                            data={filteredComponents}
+                            evenRowClassName="bg-gray-100"
+                            oddRowClassName="bg-gray-300"
+                            keyFun={item => item.lcsc}
+                            expandableContent={c => <ExpandedComponent component={c}/>}/>
+                    </>
                 :   <div>No components match the select criteria</div>
             }
 
         </>
     }
+}
+
+function ExpandedComponent(props) {
+    let comp = props.component;
+    var imgSrc = "/brokenimage.svg";
+    if (comp.images && Object.keys(comp.images).length > 0) {
+        let sources = sortImagesSrcBySize(comp.images);
+        imgSrc = sources[sources.length - 1][1];
+    }
+    return <div className="w-full flex flex-wrap pl-6">
+        <div className="w-full md:w-1/5 p-3">
+            <img
+                src={imgSrc}
+                alt={`Component ${comp.lcsc}`}
+                className="w-full mx-auto"
+                style={{
+                    maxWidth: "250px"
+                }}/>
+        </div>
+        <div className="w-full md:w-2/5 p-3">
+            <table className="w-full">
+                <thead className="border-b-2 font-bold">
+                    <tr>
+                        <td>Property</td>
+                        <td>Value</td>
+                    </tr>
+                </thead>
+                <tbody>{
+                   Object.keys(comp.attributes).reduce( (result, pName) => {
+                        result.push(
+                            <tr key={pName}>
+                                <td>{pName}</td>
+                                <td>{comp.attributes[pName]}</td>
+                            </tr>);
+                        return result;
+                   }, [])
+                }</tbody>
+            </table>
+        </div>
+        <div className="w-full md:w-2/5 p-3">
+        <table className="w-full">
+                <thead className="border-b-2 font-bold">
+                    <tr>
+                        <td>Quantity</td>
+                        <td>Unit Price</td>
+                    </tr>
+                </thead>
+                <tbody>{
+                   comp.price.map( (pricePoint, idx) => {
+                        return <tr key={idx}>
+                                <td>{
+                                    pricePoint.qTo
+                                    ?   `${pricePoint.qFrom}-${pricePoint.qTo}`
+                                    :   `${pricePoint.qFrom}+`
+                                }</td>
+                                <td>{pricePoint.price} USD</td>
+                               </tr>;
+                   })
+                }</tbody>
+            </table>
+        </div>
+    </div>
 }
 
 // Takes a dictionary of categories and subcategories and lets the user to
@@ -316,10 +425,11 @@ class CategoryFilter extends React.Component {
     handleCategoryChange = (category, value) => {
         var t0 = performance.now();
         this.setState({[category]: value.map(n => { return parseInt(n)})}, () => {
+            let version = this.props.onAnnounceChange();
             this.componentQuery().toArray().then(components => {
                 var t1 = performance.now();
                 console.log("Select took", t1 - t0, "ms");
-                this.props.onChange(components);
+                this.props.onChange(version, components);
             })
         });
     }
@@ -410,21 +520,5 @@ class QuantitySelect extends React.Component {
         return <div className="w-full bg-yellow-200">
             <h3>Specify quantity (for price point selection)</h3>
         </div>
-    }
-}
-
-export class ComponentTable extends React.Component {
-    render() {
-        return this.props.components.length
-            ?   <table className="w-full">
-                    <tbody>
-                        {this.props.components.map(component => {
-                            return <tr key={component.lcsc}>
-                                <td>{component.lcsc}</td>
-                                <td>{component.description}</td>
-                            </tr>})}
-                    </tbody>
-                </table>
-            :   <div>No components match the select criteria</div>
     }
 }

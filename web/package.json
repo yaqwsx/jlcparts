@@ -16,9 +16,11 @@
     "immer": "^7.0.8",
     "js-image-zoom": "^0.7.0",
     "react": "^16.13.1",
+    "react-copy-to-clipboard": "^5.0.2",
     "react-dom": "^16.13.1",
     "react-lazy-load-image-component": "^1.5.0",
-    "react-scripts": "3.4.3"
+    "react-scripts": "3.4.3",
+    "react-waypoint": "^9.0.3"
   },
   "scripts": {
     "start": "npm run watch:css && react-scripts start",

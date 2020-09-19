@@ -69,6 +69,8 @@ def loadPartLibrary(file):
 def parsePrice(priceString):
     prices = []
     for price in priceString.split(","):
+        if len(price) == 0:
+            continue
         range, p = tuple(price.split(":"))
         qFrom, qTo = range.split("-")
         prices.append({
@@ -148,7 +150,7 @@ def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
 
 
 def loadJlcTable(file):
-    reader = csv.DictReader(file, delimiter=';', quotechar='"')
+    reader = csv.DictReader(file, delimiter=',', quotechar='"')
     return { x["LCSC Part"]: {
                 "lcsc": x["LCSC Part"],
                 "category": x["First Category"],

@@ -343,8 +343,8 @@ export class ComponentOverview extends React.Component {
                 name: "Image",
                 sortable: false,
                 displayGetter: x => {
-                    var imgSrc = "/brokenimage.svg";
-                    var zoomImgSrc = "/brokenimage.svg";
+                    var imgSrc = "./brokenimage.svg";
+                    var zoomImgSrc = "./brokenimage.svg";
                     if (x.images && Object.keys(x.images).length > 0) {
                         let sources = sortImagesSrcBySize(x.images);
                         imgSrc = sources[0][1];
@@ -444,7 +444,7 @@ export class ComponentOverview extends React.Component {
 
 function ExpandedComponent(props) {
     let comp = props.component;
-    var imgSrc = "/brokenimage.svg";
+    var imgSrc = "./brokenimage.svg";
     if (comp.images && Object.keys(comp.images).length > 0) {
         let sources = sortImagesSrcBySize(comp.images);
         imgSrc = sources[sources.length - 1][1];

@@ -39,12 +39,13 @@ def getLibrary(cache, source, output):
             lib.save(output)
             lastSavedWhen = fetched
     for i, component in enumerate(jlcTable.values()):
-        print(f"Processing {component['lcsc']} ({i+1}/{total}) - {((i+1) / total * 100):.2f} %")
+        if i % 1000 == 0:
+            print(f"Processing - {((i+1) / total * 100):.2f} %")
         cached = cacheLib.getComponent(component["lcsc"])
         newlyFetched = False
         if not cached:
             newlyFetched = True
-            print(f"  Not in cache, fetching...")
+            print(f"  {component['lcsc']} not in cache, fetching...")
             extra, token, cookies = getLcscExtra(component["lcsc"], token, cookies,
                 onPause=saveOnPause)
             fetched += 1

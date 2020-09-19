@@ -1,0 +1,29 @@
+sudo: required
+dist: bionic # To deal with docker & statx syscall
+services:
+  - docker
+env: SH="docker exec -t container bash -c"
+
+before_install:
+  - docker run -d --name container -v $(pwd):/travis -w /travis yaqwsx/jlcparts tail -f /dev/null
+  - docker ps
+
+install:
+  - $SH "pip3 install -e ."
+  - $SH "cd web && npm install"
+
+script:
+  - $SH "export NODE_ENV=production && cd web && npm run build"
+  - $SH "wget https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip && head -c 160 cache.json"
+  - $SH "wget -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo"
+  - $SH "libreoffice --headless --convert-to csv --infilter=CSV:44,34,76,1 parts.xls && head parts.csv"
+  - $SH "jlcparts getlibrary --cache cache.json parts.csv jlcdata.json && cp jlcdata.json cache.json"
+  - $SH "jlcparts buildtables jlcdata.json web/build/data"
+  - $SH "zip web/build/data/cache.zip cache.json"
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  local-dir: web/build
+  keep_history: false

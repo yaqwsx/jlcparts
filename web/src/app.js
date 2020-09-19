@@ -13,7 +13,7 @@ library.add(fas, far, fab);
 
 function Header(props) {
   return <div className="w-full px-2 py-8 flex">
-    <img src="/favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
+    <img src="./favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
     <div className="flex-1">
       <h1 className="text-4xl font-bold">
         JLC PCB SMD Assembly Component Catalouge
@@ -176,7 +176,7 @@ class App extends React.Component {
   }
 
   onUpdateFinish = () => {
-    // this.setState({"updating": false});
+    this.setState({"updating": false});
   }
 
   triggerUpdate = () => {

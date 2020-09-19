@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "jlcparts",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -44,6 +44,7 @@
       "last 1 safari version"
     ]
   },
+  "homepage": ".",
   "devDependencies": {
     "autoprefixer": "^9.8.6",
     "postcss-cli": "^7.1.2",

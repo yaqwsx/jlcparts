@@ -421,18 +421,21 @@ export class ComponentOverview extends React.Component {
         return <>
             {filterComponents}
             {filteredComponents.length
-                ?  <>
-                        <p className="w-full">Components matching query: {filteredComponents.length}</p>
+                ?  <div className="pt-4">
+                        <p className="w-full p-2">Components matching query: {filteredComponents.length}</p>
                         <SortableTable
                             className="w-full"
+                            headerClassName="bg-blue-500"
                             header={header}
                             data={filteredComponents}
                             evenRowClassName="bg-gray-100"
                             oddRowClassName="bg-gray-300"
                             keyFun={item => item.lcsc}
                             expandableContent={c => <ExpandedComponent component={c}/>}/>
-                    </>
-                :   <div>No components match the select criteria</div>
+                    </div>
+                :   <div className="p-8 text-center text-lg">
+                        No components match the selected criteria.
+                    </div>
             }
 
         </>
@@ -591,38 +594,37 @@ class CategoryFilter extends React.Component {
             if (!draft.allCategories && this.collectActiveCategories().length === 0)
                 this.selectAll(draft);
         }), () => {
-            console.log("Before: ", this.searchTimeout);
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(this.notifyParent(), 3000);
-            console.log("After: ", this.searchTimeout);
         });
     }
 
     render() {
-        return <div className="w-full bg-blue-200">
+        return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
             <div className="flex">
-                <h3 className="block flex-1">Select category</h3>
-                <button className="block flex-none p-3 font-bold" onClick={this.handleSelectAll}>
+                <h3 className="block flex-1 text-lg mx-2 font-bold">Select category</h3>
+                <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectAll}>
                     Select all categories
                 </button>
 
-                <button className="block flex-none p-3 font-bold" onClick={this.handleSelectNone}>
+                <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectNone}>
                     Select none
                 </button>
             </div>
             <div className="w-full flex p-2">
-                <label className="flex-none block py-2 mx-2">
-                    Contains all words:
+                <label className="flex-none block py-1 mr-2">
+                    Contains text:
                 </label>
                 <input type="text"
-                    className="block flex-1 bg-gray-200 appearance-none border-2 border-gray-200 rounded w-full
-                                py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
-                                focus:border-purple-500"
+                    className="block flex-1 bg-white appearance-none border-2 border-gray-500 rounded w-full
+                                py-1 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
+                                focus:border-blue-500"
                     onChange={this.handleFulltextChange}/>
             </div>
             <div className="flex flex-wrap items-stretch">
                 {this.props.categories.map(item => {
                     return <SelectBox
+                        className="bg-blue-500"
                         key={item["category"]}
                         name={item["category"]}
                         options={item["subcategories"]}
@@ -657,7 +659,7 @@ class SelectBox extends React.Component {
 
     render() {
         return <>
-            <div className="rounded flex flex-col flex-1 p-1 m-1 bg-blue-600"  style={{"minWidth": "200px", "maxWidth": "400px"}}>
+            <div className={`rounded flex flex-col flex-1 p-1 m-1 ${this.props.className}`}  style={{"minWidth": "200px", "maxWidth": "400px"}}>
                 <div className="flex-none flex w-full">
                     <h5 className="block flex-1 font-bold">{this.props.name}</h5>
                     <div className="flex-none">
@@ -665,7 +667,7 @@ class SelectBox extends React.Component {
                         <button onClick={this.handleNoneClick} className="mx-2">None</button>
                     </div>
                 </div>
-                <select multiple="multiple" className="flex-1 w-full my-2"
+                <select multiple="multiple" className="flex-1 w-full my-2 p-1"
                         value={this.props.value} onChange={this.handleSelectChange}>
                     {this.props.options.map(option => {
                         return <option value={option["key"]} key={option["key"]}>
@@ -683,11 +685,16 @@ class SelectBox extends React.Component {
 
 class PropertySelect extends React.Component {
     render() {
-        return <div className="w-full bg-purple-200">
-            <h3>Filter properties</h3>
+        return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
+            <h3 className="block w-full text-lg mx-2 font-bold">Property filter</h3>
             <div className="flex flex-wrap items-stretch">
-                {this.props.properties.map(item => {
+                { this.props.properties.length === 0
+                ? <p className="mx-2">
+                    There are no properties to select from. Select category or adjust the full-text search to include some components.
+                 </p>
+                : this.props.properties.map(item => {
                     return <SelectBox
+                        className="bg-blue-500"
                         key={item["property"]}
                         name={item["property"]}
                         options={item["values"]}
@@ -702,7 +709,7 @@ class PropertySelect extends React.Component {
                                 checked={this.props.tableIncluded.includes(item["property"])}
                                 onChange={e => {
                                     this.props.onTableInclude(item["property"], e.target.checked); } } />
-                            Show table column
+                            Table column
                         </div>
                         <div className="w-full">
                             <input
@@ -722,16 +729,21 @@ class PropertySelect extends React.Component {
 
 class QuantitySelect extends React.Component {
     render() {
-        return <div className="w-full bg-yellow-200">
-            <p>
-                Specify quantity (for price point selection)
+        return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
+            <div className="flex">
+                <div className="flex-none py-2 mr-2">
+                    Specify quantity (for price point selection)
+                </div>
                 <input
+                    className="block flex-1 bg-white appearance-none border-2 border-gray-500 rounded w-full
+                        py-1 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
+                        focus:border-blue-500"
                     type="number"
                     min={1}
                     onChange={e => this.props.onChange(e.target.value)}
                     value={this.props.value}
                     />
-            </p>
+            </div>
         </div>
     }
 }

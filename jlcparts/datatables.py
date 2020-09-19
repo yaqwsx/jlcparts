@@ -2,6 +2,7 @@ import click
 import re
 import os
 import json
+import datetime
 from jlcparts.partLib import PartLibrary
 from jlcparts.common import sha256file
 from pathlib import Path
@@ -117,7 +118,11 @@ def buildtables(library, outdir):
                 "stockhash": stockHash
             }
         categoryIndex[catName] = subcatIndex
-    saveJson(categoryIndex, os.path.join(outdir, "index.json"), hash=True)
+    index = {
+        "categories": categoryIndex,
+        "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
+    }
+    saveJson(index, os.path.join(outdir, "index.json"), hash=True)
 
 
 

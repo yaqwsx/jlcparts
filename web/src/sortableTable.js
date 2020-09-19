@@ -6,7 +6,7 @@ import { Waypoint } from 'react-waypoint';
 
 function SortableHeaderField(props) {
     var sortIcons;
-    var className = "sticky top-0 bg-white "
+    var className = "sticky top-0 bg-blue-500 mx-1 p-2 border-r-2 rounded "
     if (props.sortable) {
         className += "cursor-pointer"
         let icon = "sort";
@@ -104,7 +104,7 @@ export class SortableTable extends React.Component {
         sortedData = sortedData.slice(0, this.state.visibleItems);
         return <>
             <table className={this.props.className}>
-                <thead>
+                <thead className="bg-white">
                     <tr>{
                         this.props.header.map( x => {
                             let sortDirection = null;

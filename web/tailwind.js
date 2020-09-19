@@ -5,6 +5,9 @@ module.exports = {
   important: false,
   separator: ':',
   theme: {
+    fontFamily: {
+      'sans': ['Lato', 'Arial', 'sans-serif'],
+    },
     container: {
       screens: {
          sm: "100%",

@@ -19,10 +19,10 @@ function extractCategoryKey(category) {
 const SOURCE_PATH = "data";
 
 // Updates the whole component library, takes a callback for reporting progress:
-// the progress is given as list of tuples (task, status)
+// the progress is given as list of tuples (task, [statusMessage, finished])
 export async function updateComponentLibrary(report) {
     await persist();
-    report({"Component index": "fetching"})
+    report({"Component index": ["fetching", false]})
     let index = await fetchJson(`${SOURCE_PATH}/index.json`,
         "Cannot fetch categories index: ");
     let progress = {}
@@ -30,15 +30,16 @@ export async function updateComponentLibrary(report) {
         progress[name] = status;
         report(progress);
     }
-    await updateCategories(index,
+    db.settings.put({key: "lastDbUpdate", value: index.created})
+    await updateCategories(index.categories,
         // onNew
         async (cName, sName, attr) => {
             let name = cName + ": " + sName;
-            updateProgress(name, "Updating components (new) 1/2");
+            updateProgress(name, ["Adding components 1/2", false]);
             let category = await addCategory(cName, sName, attr);
-            updateProgress(name, "Updating stock (new) 2/2");
+            updateProgress(name, ["Updating stock 2/2", false]);
             await updateStock(category);
-            updateProgress(name, "Finished (new)");
+            updateProgress(name, ["Added", true]);
             return category;
         },
         // onUpdateExisting
@@ -46,12 +47,12 @@ export async function updateComponentLibrary(report) {
             let cName = category["category"];
             let sName = category["subcategory"];
             let name = cName + ": " + sName;
-            updateProgress(name, "Updating components 1/2");
+            updateProgress(name, ["Updating components 1/2", false]);
             await deleteCategory(category);
             let newCategory = await addCategory(cName, sName, attr);
-            updateProgress(name, "Updating stock 2/2");
+            updateProgress(name, ["Updating stock 2/2", false]);
             await updateStock(newCategory);
-            updateProgress(name, "Finished (updateExisting)");
+            updateProgress(name, ["Update finished", true]);
             return newCategory;
         },
         // onUpdateStock
@@ -59,9 +60,9 @@ export async function updateComponentLibrary(report) {
             let cName = category["category"];
             let sName = category["subcategory"];
             let name = cName + ": " + sName;
-            updateProgress(name, "Updating stock 1/1");
+            updateProgress(name, ["Updating stock 1/1", false]);
             await updateStock(category);
-            updateProgress(name, "Finished (stock update)");
+            updateProgress(name, ["Stock updated", true]);
             return category;
         },
         // onExcessive
@@ -69,12 +70,11 @@ export async function updateComponentLibrary(report) {
             let cName = category["category"];
             let sName = category["subcategory"];
             let name = cName + ": " + sName;
-            updateProgress(name, "Removing category");
+            updateProgress(name, ["Removing category", false]);
             await deleteCategory(category);
-            updateProgress(name, "Removed");
+            updateProgress(name, ["Removed", true]);
         }
     );
-    updateProgress("All", "Finished");
 }
 
 // Check if the component library can be updated
@@ -83,7 +83,7 @@ export async function checkForComponentLibraryUpdate() {
         "Cannot fetch categories index: ");
     let updateAvailable = false;
     let onUpdate = (category) => { updateAvailable = true; return category; }
-    await updateCategories(index,
+    await updateCategories(index.categories,
         // onNew
         onUpdate,
         // onUpdateExisting
@@ -195,13 +195,16 @@ async function addCategory(categoryName, subcategoryName, attributes) {
 async function updateStock(category) {
     let stock = await fetchJson(`${SOURCE_PATH}/${category["sourcename"]}.stock.json`,
         `Cannot fetch stock for category ${category["category"]}: ${category["subcategory"]}: `);
-    await db.transaction("rw", db.components, async () => {
-        let actions = [];
-        for (const [component, stockVal] of Object.entries(stock)) {
-            actions.push(db.components.update(component, {"stock": stockVal }));
-        }
-        await Promise.all(actions);
+    await db.components.where({category: category.id}).modify(component =>{
+        component.stock = stock[component.lcsc];
     });
+    // await db.transaction("rw", db.components, async () => {
+    //     let actions = [];
+    //     for (const [component, stockVal] of Object.entries(stock)) {
+    //         actions.push(db.components.update(component, {"stock": stockVal }));
+    //     }
+    //     await Promise.all(actions);
+    // });
     let hash = await fetchText(`${SOURCE_PATH}/${category["sourcename"]}.stock.json.sha256`,
         `Cannot fetch stock hash for category ${category["category"]}: ${category["subcategory"]}: `);
     await db.categories.update(extractCategoryKey(category), {"stockhash": hash});

@@ -22,5 +22,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Generated css
+src/main.css
+
 # Data
 public/data

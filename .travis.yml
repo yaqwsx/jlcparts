@@ -27,3 +27,5 @@ deploy:
   github_token: $GITHUB_TOKEN
   local-dir: web/build
   keep_history: false
+  on:
+    branch: master

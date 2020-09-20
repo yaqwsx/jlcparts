@@ -41,7 +41,9 @@ function getQuantityPrice(quantity, pricelist) {
         if (quantity >= pricepoint.qFrom && (quantity <= pricepoint.qTo || !pricepoint.qTo))
             return pricepoint.price;
     }
-    return pricelist[0].price;
+    if (pricelist[0])
+        return pricelist[0].price;
+    return undefined;
 }
 
 function fullTextComponentsFilter(component, words) {

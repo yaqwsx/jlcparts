@@ -16,7 +16,7 @@ function Header(props) {
     <img src="./favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
     <div className="flex-1">
       <h1 className="text-4xl font-bold">
-        JLC PCB SMD Assembly Component Catalouge
+        JLC PCB SMD Assembly Component Catalogue
       </h1>
       <p>
         Parametric search for components offered by <a href="https://jlcpcb.com">JLC PCB</a> SMD assembly service.

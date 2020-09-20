@@ -317,17 +317,17 @@ export class ComponentOverview extends React.Component {
                     <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
                 </a>,
                 comparator: (a, b) => a.mfr.localeCompare(b.mfr),
-                className: "px-1"
+                className: "px-1 whitespace-no-wrap"
             },
             {
                 name: "LCSC",
                 sortable: true,
+                className: "px-1 whitespace-no-wrap text-center",
                 displayGetter: x => {
                     return <>
                         <a href={x.url} className="underline text-blue-600">
                             {x.lcsc}
                         </a>
-                        &nbsp;
                         <CopyToClipboard text={x.lcsc}>
                             <button className="py-2 px-4" onClick={e => e.stopPropagation()}>
                                 <FontAwesomeIcon icon="clipboard"/>

@@ -19,12 +19,25 @@ def saveJson(object, filename, hash=False, pretty=False):
             f.write(hash)
         return hash
 
-def normalizeAttribute(key, value):
+def normalizeAttributeValue(key, value):
     """
     Takes a name of attribute and its value and returns a normalized value
     (e.g., resistance in Ohms).
     """
+    if key == "Resistance (Ohms)":
+        return str(value) + "Ω"
     return value
+
+def normalizeAttributeKey(key, value):
+    """
+    Takes a name of attribute and its value and returns a normalized key
+    (e.g., strip unit name).
+    """
+    if "(Watts)" in key:
+        return key.replace("(Watts)", "").strip()
+    if "(Ohms)" in key:
+        return key.replace("(Ohms)", "").strip()
+    return key
 
 def pullExtraAttributes(component):
     """
@@ -45,7 +58,7 @@ def extractComponent(component, schema):
                 # LCSC return empty attributes as a list, not dictionary
                 attr = {}
             attr.update(pullExtraAttributes(component))
-            attr = { key: normalizeAttribute(key, val) for key, val in attr.items()}
+            attr = { normalizeAttributeKey(key, val): normalizeAttributeValue(key, val) for key, val in attr.items()}
             propertyList.append(attr)
         elif schItem == "images":
             images = component.get("extra", {}).get("images", {})

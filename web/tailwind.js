@@ -27,6 +27,11 @@ module.exports = {
   },
   variants: {
     backgroundColor: ['responsive', 'odd', 'even', 'hover', 'focus'],
+    overflow: ['responsive', 'hover', 'focus'],
+    zIndex: ['responsive', 'hover', 'focus'],
+    position: ['responsive', 'hover', 'focus'],
+    wordBreak: ['responsive', 'hover', 'focus'],
+    whitespace: ['responsive', 'hover', 'focus'],
   },
   future: {
     removeDeprecatedGapUtilities: true,

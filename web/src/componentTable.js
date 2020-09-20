@@ -162,6 +162,9 @@ export class ComponentOverview extends React.Component {
                 "subcategories": subCats
             });
         }
+        sortedCategories.sort((a, b) => {
+            return a.category.localeCompare(b.category);
+        })
         return sortedCategories;
     }
 
@@ -663,7 +666,7 @@ class SelectBox extends React.Component {
         return <>
             <div className={`rounded flex flex-col flex-1 p-1 m-1 ${this.props.className}`}  style={{"minWidth": "200px", "maxWidth": "400px"}}>
                 <div className="flex-none flex w-full">
-                    <h5 className="block flex-1 font-bold">{this.props.name}</h5>
+                    <h5 className="block flex-1 font-bold cursor-default rounded px-1 truncate hover:whitespace-normal">{this.props.name}</h5>
                     <div className="flex-none">
                         <button onClick={this.handleAllClick} className="mx-2">All</button>
                         <button onClick={this.handleNoneClick} className="mx-2">None</button>

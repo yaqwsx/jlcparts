@@ -430,7 +430,14 @@ export class ComponentOverview extends React.Component {
             {filterComponents}
             {filteredComponents.length
                 ?  <div className="pt-4">
-                        <p className="w-full p-2">Components matching query: {filteredComponents.length}</p>
+                        <div className="w-full flex py-2">
+                            <p className="flex-none p-2">Components matching query: {filteredComponents.length}</p>
+                            <CopyToClipboard text={filteredComponents.map(c => `wget ${c.datasheet}`).join("\n")}>
+                                <button className="flex-none ml-auto block flex-none bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={e => e.stopPropagation()}>
+                                    wget all datasheets <FontAwesomeIcon icon="clipboard"/>
+                                </button>
+                            </CopyToClipboard>
+                        </div>
                         <SortableTable
                             className="w-full"
                             headerClassName="bg-blue-500"

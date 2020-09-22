@@ -135,7 +135,10 @@ export class ComponentOverview extends React.Component {
 
     componentDidMount() {
         db.categories.toArray().then( categories => {
-            this.setState({"categories": this.prepareCategories(categories)});
+            this.setState({
+                "categories": this.prepareCategories(categories),
+                "rawCategories": categories
+            });
         })
     }
 
@@ -436,7 +439,10 @@ export class ComponentOverview extends React.Component {
                             evenRowClassName="bg-gray-100"
                             oddRowClassName="bg-gray-300"
                             keyFun={item => item.lcsc}
-                            expandableContent={c => <ExpandedComponent component={c}/>}/>
+                            expandableContent={c =>
+                                <ExpandedComponent
+                                    component={c}
+                                    categories={this.state.rawCategories}/>}/>
                     </div>
                 :   <div className="p-8 text-center text-lg">
                         No components match the selected criteria.
@@ -447,6 +453,17 @@ export class ComponentOverview extends React.Component {
     }
 }
 
+function findCategoryById(categories, id) {
+    for (let category of categories) {
+        if (category.id === id )
+            return category;
+    }
+    return {
+        category: "unknown",
+        subcategory: "unknown"
+    }
+}
+
 function ExpandedComponent(props) {
     let comp = props.component;
     var imgSrc = "./brokenimage.svg";
@@ -454,6 +471,7 @@ function ExpandedComponent(props) {
         let sources = sortImagesSrcBySize(comp.images);
         imgSrc = sources[sources.length - 1][1];
     }
+    let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">
         <div className="w-full md:w-1/5 p-3">
             <img
@@ -472,16 +490,22 @@ function ExpandedComponent(props) {
                         <td>Value</td>
                     </tr>
                 </thead>
-                <tbody>{
-                   Object.keys(comp.attributes).reduce( (result, pName) => {
-                        result.push(
-                            <tr key={pName}>
-                                <td>{pName}</td>
-                                <td>{comp.attributes[pName]}</td>
-                            </tr>);
-                        return result;
-                   }, [])
-                }</tbody>
+                <tbody>
+                    <tr key="category">
+                        <td>Category</td>
+                        <td>{category.category}: {category.subcategory}</td>
+                    </tr>
+                    {
+                        Object.keys(comp.attributes).reduce( (result, pName) => {
+                                result.push(
+                                    <tr key={pName}>
+                                        <td>{pName}</td>
+                                        <td>{comp.attributes[pName]}</td>
+                                    </tr>);
+                                return result;
+                        }, [])
+                    }
+                </tbody>
             </table>
         </div>
         <div className="w-full md:w-2/5 p-3">

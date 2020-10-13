@@ -125,6 +125,7 @@ export class ComponentOverview extends React.Component {
             "components": [],
             "categories": [],
             "activeProperties": {},
+            "stockRequired": false,
             "requiredProperties": new Set(),
             "expectedComponentsVersion": 0,
             "componentsVersion": 0,
@@ -267,6 +268,8 @@ export class ComponentOverview extends React.Component {
     filterComponents(components, activeProperties, requiredProperties) {
         return components.filter(component => {
             for (const property in activeProperties) {
+                if (this.state.stockRequired && component.stock < this.state.quantity)
+                    return false;
                 let attributes = component["attributes"];
                 if (!(property in attributes)) {
                     if (requiredProperties.has(property))
@@ -283,6 +286,10 @@ export class ComponentOverview extends React.Component {
 
     handleQuantityChange = q => {
         this.setState({quantity: q});
+    }
+
+    handleStockRequired = stockRequired => {
+        this.setState({stockRequired: stockRequired});
     }
 
     render() {
@@ -302,7 +309,9 @@ export class ComponentOverview extends React.Component {
                 />
             <QuantitySelect
                 onChange={this.handleQuantityChange}
-                value={this.state.quantity}/>
+                value={this.state.quantity}
+                stockRequired={this.state.stockRequired}
+                onStockRequired={this.handleStockRequired}/>
             </>;
 
         if (this.state.expectedComponentsVersion !== this.state.componentsVersion) {
@@ -787,6 +796,21 @@ class QuantitySelect extends React.Component {
                     onChange={e => this.props.onChange(e.target.value)}
                     value={this.props.value}
                     />
+                <div className="flex-none flex items-center">
+                    <input
+                        className="px-2 ml-3 transform scale-150"
+                        type="checkbox"
+                        checked={this.props.stockRequired}
+                        onChange={e => {
+                            this.props.onStockRequired(e.target.checked)
+                        }}/>
+                    <span className="ml-1 py-2 pl-2 leading-none">
+                        Require on stock <br/>
+                        <span className="text-gray-600 text-xs">
+                            (Stock data can be 24 hours old)
+                        </span>
+                    </span>
+                </div>
             </div>
         </div>
     }

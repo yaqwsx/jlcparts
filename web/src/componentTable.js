@@ -433,7 +433,8 @@ export class ComponentOverview extends React.Component {
                 name: attribute,
                 sortable: true,
                 displayGetter: getter,
-                comparator: (a, b) => universalComparator(getter(a), getter(b))
+                comparator: (a, b) => universalComparator(getter(a), getter(b)),
+                onDelete: () => this.handleIncludeInTable(attribute, false)
             });
         }
 

@@ -6,9 +6,9 @@ import { Waypoint } from 'react-waypoint';
 
 function SortableHeaderField(props) {
     var sortIcons;
-    var className = "sticky top-0 bg-blue-500 mx-1 p-2 border-r-2 rounded "
+    var className = "sticky top-0 bg-blue-500 mx-1 p-2 border-r-2 rounded"
     if (props.sortable) {
-        className += "cursor-pointer"
+        className += " cursor-pointer"
         let icon = "sort";
         if (props.sortDirection === "asc")
             icon = "sort-amount-up";
@@ -21,8 +21,22 @@ function SortableHeaderField(props) {
 
     return <>
         <th onClick={() => props.onClick()} className={className}>
-            {props.header}
-            { sortIcons }
+            <div className="w-full flex">
+                <div className="flex-1">
+                    {props.header}
+                    {sortIcons}
+                </div>
+                {
+                    props.onDelete
+                    ? <div className="flex-none" onClick={e => {
+                        e.stopPropagation();
+                        props.onDelete();
+                    }}>
+                        <FontAwesomeIcon icon="times-circle"/>
+                    </div>
+                    : <></>
+                }
+            </div>
         </th>
     </>
 }
@@ -115,7 +129,8 @@ export class SortableTable extends React.Component {
                                         header={x.name}
                                         sortable={x.sortable}
                                         onClick={() => this.handleHeaderClick(x.name)}
-                                        sortDirection={sortDirection}/>;
+                                        sortDirection={sortDirection}
+                                        onDelete={x.onDelete}/>;
                         })
                     }</tr>
                 </thead>

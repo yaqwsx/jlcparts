@@ -105,6 +105,49 @@ def resistanceAttribute(value):
         }
     }
 
+def impedanceAttribute(value):
+    value = readResistance(value)
+    return {
+        "format": "${impedance}",
+        "primary": "impedance",
+        "values": {
+            "impedance": [value, "resistance"]
+        }
+    }
+
+
+def voltageAttribute(value):
+    value = readVoltage(value)
+    return {
+        "format": "${voltage}",
+        "primary": "voltage",
+        "values": {
+            "voltage": [value, "voltage"]
+        }
+    }
+
+def currentAttribute(value):
+    value = readCurrent(value)
+    return {
+        "format": "${current}",
+        "primary": "current",
+        "values": {
+            "current": [value, "current"]
+        }
+    }
+
+def powerAttribute(value):
+    value = re.sub(r"\(.*?\)", "", value)
+    p = readPower(value)
+    return {
+        "format": "${power}",
+        "default": "Power",
+        "values": {
+            "power": [p, "power"]
+        }
+    }
+
+
 def rdsOnMaxAtIdsAtVgs(value):
     """
     Given a string in format "<resistance> @ <current>, <voltage>" parse it and
@@ -230,20 +273,6 @@ def powerDissipation(value):
                 "power": [p, "power"]
             }
         }
-
-def power(value):
-    """
-    Parse single power value
-    """
-    value = re.sub(r"\(.*?\)", "", value)
-    p = readPower(value)
-    return {
-        "format": "${power}",
-        "default": "Power",
-        "values": {
-            "power": [p, "power"]
-        }
-    }
 
 def vgsThreshold(value):
     """

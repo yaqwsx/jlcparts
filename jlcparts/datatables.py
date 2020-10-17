@@ -45,8 +45,18 @@ def normalizeAttribute(key, value):
     The fallback is unit "string"
     """
     key = normalizeAttributeKey(key)
-    if key in ["Resistance", "Resistance in Ohms @ 25°C"]:
+    if key in ["Resistance", "Resistance in Ohms @ 25°C", "DC Resistance"]:
         value = attributes.resistanceAttribute(value)
+    elif key in ["Balance Port Impedence", "Unbalance Port Impedence"]:
+        value = attributes.impedanceAttribute(value)
+    elif key in ["Voltage - Rated", "Voltage Rating - DC", "Allowable Voltage",
+            "Clamping Voltage", "Varistor Voltage(Max)", "Varistor Voltage(Typ)",
+            "Varistor Voltage(Min)"]:
+        value = attributes.voltageAttribute(value)
+    elif key in ["Rated current", "surge current"]:
+        value = attributes.currentAttribute(value)
+    elif key in ["Power", "Power Per Element"]:
+        value = attributes.powerAttribute(value)
     elif key == "Rds On (Max) @ Id, Vgs":
         value = attributes.rdsOnMaxAtIdsAtVgs(value)
     elif key == "Continuous Drain Current (Id) @ 25°C":
@@ -57,8 +67,6 @@ def normalizeAttribute(key, value):
         value = attributes.drainToSourceVoltage(value)
     elif key == "Power Dissipation-Max (Ta=25°C)":
         value = attributes.powerDissipation(value)
-    elif key in ["Power", "Power Per Element"]:
-        value = attributes.power(value)
     else:
         value = attributes.stringAttribute(value)
     assert(isinstance(value, dict))
@@ -73,6 +81,16 @@ def normalizeAttributeKey(key):
         key = key.replace("(Watts)", "").strip()
     if "(Ohms)" in key:
         key = key.replace("(Ohms)", "").strip()
+    if key == "aristor Voltage(Min)":
+        key = "Varistor Voltage(Min)"
+    if key in ["Allowable Voltage(Vdc)", "Voltage - Max"]:
+        key = "Allowable Voltage"
+    if key in ["DC Resistance (DCR)", "DC Resistance (DCR) (Max)", "DCR( Ω Max )"]:
+        key = "DC Resistance"
+    if key in ["Insertion Loss ( dB Max )", "Insertion Loss (Max)"]:
+        key = "Insertion Loss (dB Max)"
+    if key in ["Current Rating (Max)"]:
+        key = "Rated current"
     return key
 
 def pullExtraAttributes(component):

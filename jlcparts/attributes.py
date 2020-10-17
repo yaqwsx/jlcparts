@@ -52,7 +52,7 @@ def readResistance(value):
     """
     Given a string, try to parse resistance and return it as Ohms (float)
     """
-    value = value.replace("Ω", "").replace("Ohm", "").strip()
+    value = erase(value, ["Ω", "Ohms", "Ohm"]).strip()
     unitPrefixes = {
         "m": [1e-3, 1e-6],
         "K": [1e3, 1],

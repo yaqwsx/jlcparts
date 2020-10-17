@@ -6,7 +6,7 @@ import datetime
 import sys
 from jlcparts.partLib import PartLibrary
 from jlcparts.common import sha256file
-from jlcparts import attributes
+from jlcparts import attributes, descriptionAttributes
 from pathlib import Path
 
 def saveJson(object, filename, hash=False, pretty=False):
@@ -21,6 +21,17 @@ def saveJson(object, filename, hash=False, pretty=False):
             f.write(hash)
         return hash
 
+def weakUpdateParameters(attrs, newParameters):
+    for attr, value in newParameters.items():
+        if attr in attrs and attrs[attr] not in ["", "-"]:
+            continue
+        attrs[attr] = value
+
+def extractAttributesFromDescription(description):
+    if description.startswith("Chip Resistor - Surface Mount"):
+        return descriptionAttributes.chipResistor(description)
+    return {}
+
 def normalizeAttribute(key, value):
     """
     Takes a name of attribute and its value (usually a string) and returns a
@@ -34,7 +45,7 @@ def normalizeAttribute(key, value):
     The fallback is unit "string"
     """
     key = normalizeAttributeKey(key)
-    if key == "Resistance":
+    if key in ["Resistance", "Resistance in Ohms @ 25°C"]:
         value = attributes.resistanceAttribute(value)
     elif key == "Rds On (Max) @ Id, Vgs":
         value = attributes.rdsOnMaxAtIdsAtVgs(value)
@@ -46,7 +57,7 @@ def normalizeAttribute(key, value):
         value = attributes.drainToSourceVoltage(value)
     elif key == "Power Dissipation-Max (Ta=25°C)":
         value = attributes.powerDissipation(value)
-    elif key == "Power":
+    elif key in ["Power", "Power Per Element"]:
         value = attributes.power(value)
     else:
         value = attributes.stringAttribute(value)
@@ -83,6 +94,7 @@ def extractComponent(component, schema):
                 # LCSC return empty attributes as a list, not dictionary
                 attr = {}
             attr.update(pullExtraAttributes(component))
+            weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
             attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
             propertyList.append(attr)
         elif schItem == "images":

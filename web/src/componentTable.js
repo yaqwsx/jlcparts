@@ -829,6 +829,9 @@ class PropertySelector extends React.Component {
     }
 
     render() {
+        let options = this.valueOptions();
+        if (options.length <= 1)
+            return <></>
         return <MultiSelectBox
             className={this.props.className}
             minHeight="10em"

@@ -20,6 +20,7 @@ script:
   - $SH "jlcparts getlibrary --cache cache.json parts.csv jlcdata.json && cp jlcdata.json cache.json"
   - $SH "jlcparts buildtables jlcdata.json web/build/data"
   - $SH "zip web/build/data/cache.zip cache.json"
+  - $SH "if [ $TRAVIS_REPO_SLUG = 'yaqwsx/jlcparts-dev' ] ; then echo 'jlcparts-dev.honzamrazek.cz' > web/build/CNAME; fi"
 
 deploy:
   provider: pages

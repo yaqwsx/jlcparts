@@ -65,6 +65,33 @@ class FirstTimeNote extends React.Component {
   }
 }
 
+class NewComponentFormatWarning extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      newComponentFormat: true
+    };
+  }
+
+  componentDidMount() {
+    db.components.limit(1).first().then(x => {
+      if (typeof x.attributes[Object.keys(x.attributes)[0]] !== 'object')
+        this.setState({newComponentFormat: false});
+    });
+  }
+
+  render() {
+    if (this.state.newComponentFormat)
+      return <></>
+    return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
+      <p>
+        Hey, there have been some breaking changes to the library format.
+        Please, update the library before continuing to use the tool.
+      </p>
+    </div>
+  }
+}
+
 class UpdateBar extends React.Component {
   constructor(props) {
     super(props);
@@ -194,6 +221,7 @@ class App extends React.Component {
           <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
           <Header/>
           <FirstTimeNote/>
+          <NewComponentFormatWarning/>
           <ComponentOverview/>
           <Footer/>
         </Container>

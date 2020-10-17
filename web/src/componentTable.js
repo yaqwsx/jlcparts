@@ -5,15 +5,37 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
+import { quantityComparator, quantityFormatter } from "./units";
 
 enableMapSet();
 
-function universalComparator(a, b) {
-    if (typeof(a) === "number" && typeof(b) === "number")
-        return a - b;
-    if (typeof(a) === "string" && typeof(b) === "string")
-        return a.localeCompare(b);
-    return a.toString().localeCompare(b.toString());
+function getValue(value) {
+    if (value === undefined)
+        return undefined;
+    return value[0];
+}
+
+function getQuantity(value) {
+    if (value === undefined)
+        return undefined;
+    return value[1];
+}
+
+// Compare two attributes based on given valueType. If no valueType is
+// specified, use primary attribute of x
+function attributeComparator(x, y, valueType = undefined) {
+    if (x === undefined && y === undefined)
+        return 0;
+    if (x === undefined)
+        return 1;
+    if (y === undefined)
+        return -1;
+    if (valueType === undefined)
+        valueType = x.primary;
+    let comparator = quantityComparator(getQuantity(x.values[valueType]));
+    return comparator(
+        getValue(x.values[valueType]),
+        getValue(y.values[valueType]));
 }
 
 function parseImageSize(imageSizeStr) {
@@ -61,6 +83,21 @@ function componentText(component) {
         component.mfr + " " +
         component.description
     ).toLocaleLowerCase();
+}
+
+function formatAttribute(attribute) {
+    let varNames = Object.keys(attribute.values).map(x => "\\${" + x + "}");
+
+    let regex = new RegExp('(' + varNames.join('|') + ')', 'g');
+    return attribute.format.replace(regex, match => {
+        let name = match.slice(2, -1);
+        let value = attribute.values[name];
+        return quantityFormatter(value[1])(value[0]);
+    });
+}
+
+function valueFootprint(value) {
+    return JSON.stringify(value);
 }
 
 function Spinbox() {
@@ -180,32 +217,29 @@ export class ComponentOverview extends React.Component {
             let attributes = component["attributes"];
             for (const property in attributes) {
                 if (!(property in properties)) {
-                    properties[property] = new Set();
+                    properties[property] = {};
                 }
-                properties[property].add(attributes[property]);
+                let val = attributes[property];
+                properties[property][valueFootprint(val)] = val;
             }
         }
 
-        let sortedProperties = [];
+        let propertiesList = [];
         for (const property in properties) {
-            if (properties[property].size <= 1)
+            if (Object.keys(properties[property]).size <= 1)
                 continue;
-            let values = [...properties[property]].map(x => {
-                return {"key": x, "value": x};
+            let values = Object.entries(properties[property]).map(x => {
+                return {"key": x[0], "value": x[1]};
             });
-            values.sort((a, b) => {
-                return a.key.localeCompare(b.key);
-            });
-
-            sortedProperties.push({
+            propertiesList.push({
                 "property": property,
                 "values": values
             });
         }
-        sortedProperties.sort((a, b) => {
+        propertiesList.sort((a, b) => {
             return a.property.localeCompare(b.property);
         });
-        return sortedProperties;
+        return propertiesList;
     }
 
     handleStartComponentsChange = () => {
@@ -277,7 +311,7 @@ export class ComponentOverview extends React.Component {
                     else
                         continue
                 }
-                if (!(activeProperties[property].includes(attributes[property])))
+                if (!(activeProperties[property].includes(valueFootprint(attributes[property]))))
                     return false;
             }
             return true;
@@ -360,8 +394,8 @@ export class ComponentOverview extends React.Component {
             {
                 name: "Basic/Extended",
                 sortable: true,
-                displayGetter: x => x.attributes["Basic/Extended"][0],
-                comparator: (a, b) => a.attributes["Basic/Extended"].localeCompare(b.attributes["Basic/Extended"]),
+                displayGetter: x => formatAttribute(x.attributes["Basic/Extended"])[0],
+                comparator: (a, b) => formatAttribute(a.attributes["Basic/Extended"]).localeCompare(formatAttribute(b.attributes["Basic/Extended"])),
                 className: "text-center"
             },
             {
@@ -425,16 +459,23 @@ export class ComponentOverview extends React.Component {
         for (let attribute of this.state.tableIncludedProperties) {
             let getter = x => {
                 if (attribute in x.attributes)
-                    return x.attributes[attribute];
+                    return formatAttribute(x.attributes[attribute]);
                 return "";
+            }
+
+            let comparator = (x, y) => {
+                let val1 = x.attributes[attribute];
+                let val2 = y.attributes[attribute];
+                return attributeComparator(val1, val2);
             }
 
             header.push( {
                 name: attribute,
                 sortable: true,
                 displayGetter: getter,
-                comparator: (a, b) => universalComparator(getter(a), getter(b)),
-                onDelete: () => this.handleIncludeInTable(attribute, false)
+                comparator: comparator,
+                onDelete: () => this.handleIncludeInTable(attribute, false),
+                className: "text-center"
             });
         }
 
@@ -525,7 +566,7 @@ function ExpandedComponent(props) {
                                 result.push(
                                     <tr key={pName}>
                                         <td>{pName}</td>
-                                        <td>{comp.attributes[pName]}</td>
+                                        <td>{formatAttribute(comp.attributes[pName])}</td>
                                     </tr>);
                                 return result;
                         }, [])
@@ -677,7 +718,7 @@ class CategoryFilter extends React.Component {
             </div>
             <div className="flex flex-wrap items-stretch">
                 {this.props.categories.map(item => {
-                    return <SelectBox
+                    return <MultiSelectBox
                         className="bg-blue-500"
                         key={item["category"]}
                         name={item["category"]}
@@ -691,7 +732,7 @@ class CategoryFilter extends React.Component {
     }
 }
 
-class SelectBox extends React.Component {
+class MultiSelectBox extends React.Component {
     handleAllClick = (e) => {
         e.preventDefault();
         let values = this.props.options.map(option => {
@@ -712,6 +753,9 @@ class SelectBox extends React.Component {
     }
 
     render() {
+        let selectStyle = {};
+        if (this.props.minHeight)
+            selectStyle.minHeight = this.props.minHeight;
         return <>
             <div className={`rounded flex flex-col flex-1 p-1 m-1 ${this.props.className}`}  style={{"minWidth": "200px", "maxWidth": "400px"}}>
                 <div className="flex-none flex w-full">
@@ -722,6 +766,7 @@ class SelectBox extends React.Component {
                     </div>
                 </div>
                 <select multiple="multiple" className="flex-1 w-full my-2 p-1"
+                        style={selectStyle}
                         value={this.props.value} onChange={this.handleSelectChange}>
                     {this.props.options.map(option => {
                         return <option value={option["key"]} key={option["key"]}>
@@ -737,6 +782,96 @@ class SelectBox extends React.Component {
     }
 }
 
+class SingleSelectBox extends React.Component {
+    render() {
+        return <select className={this.props.className} onChange={this.props.onChange}>
+            {this.props.options.map(option => {
+                return <option value={option["key"]} key={option["key"]}>
+                            {option["value"]}
+                    </option>;
+            })}
+        </select>
+    }
+}
+
+class PropertySelector extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            sortBy: this.collectValueTypes()[0].value
+        };
+    }
+
+    collectValueTypes() {
+        return [...new Set(this.props.item.values.flatMap(x => {
+            return Object.keys(x.value.values);
+        }))].map(x => {
+            return {
+                key: x,
+                value: x
+            }
+        });
+    }
+
+    valueOptions() {
+        let options = [...this.props.item.values];
+        options.sort((a, b) => {
+            return attributeComparator(a.value, b.value, this.state.sortBy);
+        })
+        return options.map(x => { return {
+            key: x.key,
+            value: formatAttribute(x.value)
+        }; } );
+    }
+
+    handleSortChange = e => {
+        this.setState({sortBy: e.target.value});
+    }
+
+    render() {
+        return <MultiSelectBox
+            className={this.props.className}
+            minHeight="10em"
+            name={this.props.item.property}
+            options={this.valueOptions()}
+            value={this.props.value}
+            onChange={value => {
+                this.props.onChange(value); } }
+        >
+            <div className="w-full flex">
+                <div className="flex-none">
+                    Sort by:
+                </div>
+                <div className="flex-1 ml-2">
+                    <SingleSelectBox
+                        className="w-full rounded bg-white"
+                        value={this.state.sortBy}
+                        options={this.collectValueTypes()}
+                        onChange={this.handleSortChange}/>
+                </div>
+            </div>
+            <div className="w-full">
+                <input
+                    className="mr-2 leading-tight"
+                    type="checkbox"
+                    checked={this.props.tableIncluded}
+                    onChange={e => {
+                        this.props.onTableInclude(e.target.checked); } } />
+                Table column
+            </div>
+            <div className="w-full">
+                <input
+                    className="mr-2 leading-tight"
+                    type="checkbox"
+                    checked={this.props.required}
+                    onChange={e => {
+                        this.props.onPropertyRequired(e.target.checked); } } />
+                Required
+            </div>
+        </MultiSelectBox>;
+    }
+}
+
 class PropertySelect extends React.Component {
     render() {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
@@ -747,34 +882,17 @@ class PropertySelect extends React.Component {
                     There are no properties to select from. Select category or adjust the full-text search to include some components.
                  </p>
                 : this.props.properties.map(item => {
-                    return <SelectBox
-                        className="bg-blue-500"
+                    return <PropertySelector
                         key={item["property"]}
-                        name={item["property"]}
-                        options={item["values"]}
-                        value={this.props.values[item["property"]]}
-                        onChange={value => {
-                            this.props.onChange(item["property"], value); } }
-                    >
-                        <div className="w-full">
-                            <input
-                                className="mr-2 leading-tight"
-                                type="checkbox"
-                                checked={this.props.tableIncluded.includes(item["property"])}
-                                onChange={e => {
-                                    this.props.onTableInclude(item["property"], e.target.checked); } } />
-                            Table column
-                        </div>
-                        <div className="w-full">
-                            <input
-                                className="mr-2 leading-tight"
-                                type="checkbox"
-                                checked={this.props.requiredProperties.includes(item["property"])}
-                                onChange={e => {
-                                    this.props.onPropertyRequired(item["property"], e.target.checked); } } />
-                            Required
-                        </div>
-                    </SelectBox>;
+                        className="bg-blue-500"
+                        item={item}
+                        value={this.props.values[item.property]}
+                        onChange={value => this.props.onChange(item.property, value)}
+                        tableIncluded={this.props.tableIncluded.includes(item.property)}
+                        onTableInclude={value => this.props.onTableInclude(item.property, value)}
+                        required={this.props.requiredProperties.includes(item.property)}
+                        onPropertyRequired={value => this.props.onPropertyRequired(item.property, value) }
+                    />;
                 })}
             </div>
         </div>

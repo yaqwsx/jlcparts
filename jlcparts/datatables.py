@@ -3,8 +3,10 @@ import re
 import os
 import json
 import datetime
+import sys
 from jlcparts.partLib import PartLibrary
 from jlcparts.common import sha256file
+from jlcparts import attributes
 from pathlib import Path
 
 def saveJson(object, filename, hash=False, pretty=False):
@@ -19,24 +21,47 @@ def saveJson(object, filename, hash=False, pretty=False):
             f.write(hash)
         return hash
 
-def normalizeAttributeValue(key, value):
+def normalizeAttribute(key, value):
     """
-    Takes a name of attribute and its value and returns a normalized value
-    (e.g., resistance in Ohms).
+    Takes a name of attribute and its value (usually a string) and returns a
+    normalized attribute name and its value as a tuple. Normalized value is a
+    dictionary in the format:
+        {
+            "format": <format string, e.g., "${Resistance} ${Power}",
+            "primary": <name of primary value>,
+            "values": <dictinary of values with units, e.g, { "resistance": [10, "resistance"] }>
+        }
+    The fallback is unit "string"
     """
-    if key == "Resistance (Ohms)":
-        return str(value) + "Ω"
-    return value
+    key = normalizeAttributeKey(key)
+    if key == "Resistance":
+        value = attributes.resistanceAttribute(value)
+    elif key == "Rds On (Max) @ Id, Vgs":
+        value = attributes.rdsOnMaxAtIdsAtVgs(value)
+    elif key == "Continuous Drain Current (Id) @ 25°C":
+        value = attributes.continuousDrainCurrent(value)
+    elif key == "Vgs(th) (Max) @ Id":
+        value = attributes.vgsThreshold(value)
+    elif key == "Drain to Source Voltage(Vdss)":
+        value = attributes.drainToSourceVoltage(value)
+    elif key == "Power Dissipation-Max (Ta=25°C)":
+        value = attributes.powerDissipation(value)
+    elif key == "Power":
+        value = attributes.power(value)
+    else:
+        value = attributes.stringAttribute(value)
+    assert(isinstance(value, dict))
+    return key, value
 
-def normalizeAttributeKey(key, value):
+def normalizeAttributeKey(key):
     """
     Takes a name of attribute and its value and returns a normalized key
     (e.g., strip unit name).
     """
     if "(Watts)" in key:
-        return key.replace("(Watts)", "").strip()
+        key = key.replace("(Watts)", "").strip()
     if "(Ohms)" in key:
-        return key.replace("(Ohms)", "").strip()
+        key = key.replace("(Ohms)", "").strip()
     return key
 
 def pullExtraAttributes(component):
@@ -58,7 +83,7 @@ def extractComponent(component, schema):
                 # LCSC return empty attributes as a list, not dictionary
                 attr = {}
             attr.update(pullExtraAttributes(component))
-            attr = { normalizeAttributeKey(key, val): normalizeAttributeValue(key, val) for key, val in attr.items()}
+            attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
             propertyList.append(attr)
         elif schItem == "images":
             images = component.get("extra", {}).get("images", {})

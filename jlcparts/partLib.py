@@ -57,6 +57,19 @@ class PartLibrary:
         """
         return { category: subcategories.keys() for category, subcategories in self.lib.items()}
 
+    def delete(self, lcscNumber):
+        cat, subcat = self.index[lcscNumber]
+        del self.lib[cat][subcat][lcscNumber]
+        del self.index[lcscNumber]
+
+    def deleteNOldest(self, count):
+        if count == 0:
+            return
+        components = [self.getComponent(x) for x in self.index.keys()]
+        components.sort(key=lambda x: x["extraTimestamp"] if "extraTimestamp" in x else 0)
+        for i in range(count):
+            self.delete(components[i]["lcsc"])
+
     def save(self, filename):
         with open(filename, "w") as f:
             json.dump(self.lib, f)

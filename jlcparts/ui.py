@@ -1,6 +1,7 @@
 import click
 import shutil
 import os
+import time
 from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies
 from jlcparts.datatables import buildtables
 
@@ -9,7 +10,9 @@ from jlcparts.datatables import buildtables
 @click.argument("output", type=click.Path(dir_okay=False, writable=True))
 @click.option("--cache", type=click.Path(dir_okay=False, exists=True),
     help="Previously generated JSON file serving as a cache for LCSC informatioon")
-def getLibrary(cache, source, output):
+@click.option("--age", type=int, default=0,
+    help="Automatically discard n oldest components and fetch them again")
+def getLibrary(cache, source, output, age):
     """
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
     provided by JLC PCB).
@@ -18,6 +21,7 @@ def getLibrary(cache, source, output):
     fetch LCSC extra data.
     """
     cacheLib = PartLibrary(cache)
+    cacheLib.deleteNOldest(age)
     lib = PartLibrary()
 
     with open(source, newline="") as f:
@@ -51,9 +55,12 @@ def getLibrary(cache, source, output):
             fetched += 1
             if extra is None:
                 sys.exit("Invalid extra data fetched, aborting")
+            fetchedAt = int(time.time())
         else:
             extra = cached["extra"]
+            fetchedAt = cached["extraTimestamp"] if "extraTimestamp" in cached else 0
         component["extra"] = extra
+        component["extraTimestamp"] = fetchedAt
         lib.addComponent(component)
         if newlyFetched and fetched % 200 == 0:
             saveOnPause()

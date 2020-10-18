@@ -30,6 +30,9 @@ def weakUpdateParameters(attrs, newParameters):
 def extractAttributesFromDescription(description):
     if description.startswith("Chip Resistor - Surface Mount"):
         return descriptionAttributes.chipResistor(description)
+    if (description.startswith("Multilayer Ceramic Capacitors MLCC") or
+       description.startswith("Aluminum Electrolytic Capacitors")):
+        return descriptionAttributes.capacitor(description)
     return {}
 
 def normalizeAttribute(key, value):
@@ -51,22 +54,56 @@ def normalizeAttribute(key, value):
         value = attributes.impedanceAttribute(value)
     elif key in ["Voltage - Rated", "Voltage Rating - DC", "Allowable Voltage",
             "Clamping Voltage", "Varistor Voltage(Max)", "Varistor Voltage(Typ)",
-            "Varistor Voltage(Min)"]:
+            "Varistor Voltage(Min)", "Voltage - DC Reverse (Vr) (Max)",
+            "Voltage - DC Spark Over (Nom)", "Voltage - Peak Reverse (Max)",
+            "Voltage - Reverse Standoff (Typ)", "Voltage - Gate Trigger (Vgt) (Max)",
+            "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
+            "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)"]:
         value = attributes.voltageAttribute(value)
-    elif key in ["Rated current", "surge current"]:
+    elif key in ["Rated current", "surge current", "Current - Average Rectified (Io)",
+                 "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
+                 "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
+                 "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
+                 "Current - Supply (Max)", "Output Current", "Output Current (Max)"]:
         value = attributes.currentAttribute(value)
     elif key in ["Power", "Power Per Element"]:
         value = attributes.powerAttribute(value)
+    elif key in ["Number of Pins", "Number of Resistors", "Number of Loop",
+                 "Number of Regulators"]:
+        value = attributes.countAttribute(value)
+    elif key in ["Capacitance"]:
+        value = attributes.capacitanceAttribute(value)
+    elif key in ["Inductance"]:
+        value = attributes.inductanceAttribute(value)
     elif key == "Rds On (Max) @ Id, Vgs":
         value = attributes.rdsOnMaxAtIdsAtVgs(value)
     elif key == "Continuous Drain Current (Id) @ 25°C":
-        value = attributes.continuousDrainCurrent(value)
+        value = attributes.continuousTransistorCurrent(value, "Id")
+    elif key == "Current - Collector (Ic) (Max)":
+        value = attributes.continuousTransistorCurrent(value, "Ic")
     elif key == "Vgs(th) (Max) @ Id":
         value = attributes.vgsThreshold(value)
     elif key == "Drain to Source Voltage(Vdss)":
         value = attributes.drainToSourceVoltage(value)
     elif key == "Power Dissipation-Max (Ta=25°C)":
         value = attributes.powerDissipation(value)
+    elif key in ["Equivalent Series Resistance", "Impedance @ Frequency"]:
+        value = attributes.esr(value)
+    elif key == "Ripple Current":
+        value = attributes.rippleCurrent(value)
+    elif key == "Size(mm)":
+        value = attributes.sizeMm(value)
+    elif key == "Voltage - Forward (Vf) (Max) @ If":
+        value = attributes.forwardVoltage(value)
+    elif key in ["Voltage - Breakdown (Min)", "Voltage - Zener (Nom) (Vz)",
+        "Vf - Forward Voltage"]:
+        value = attributes.voltageRange(value)
+    elif key == "Voltage - Clamping (Max) @ Ipp":
+        value = attributes.clampingVoltage(value)
+    elif key == "Voltage - Collector Emitter Breakdown (Max)":
+        value = attributes.vceBreakdown(value)
+    elif key == "Vce(on) (Max) @ Vge, Ic":
+        value = attributes.vceOnMax(value)
     else:
         value = attributes.stringAttribute(value)
     assert(isinstance(value, dict))
@@ -83,6 +120,8 @@ def normalizeAttributeKey(key):
         key = key.replace("(Ohms)", "").strip()
     if key == "aristor Voltage(Min)":
         key = "Varistor Voltage(Min)"
+    if key == "ESR (Equivalent Series Resistance)":
+        key = "Equivalent Series Resistance"
     if key in ["Allowable Voltage(Vdc)", "Voltage - Max"]:
         key = "Allowable Voltage"
     if key in ["DC Resistance (DCR)", "DC Resistance (DCR) (Max)", "DCR( Ω Max )"]:
@@ -91,6 +130,12 @@ def normalizeAttributeKey(key):
         key = "Insertion Loss (dB Max)"
     if key in ["Current Rating (Max)"]:
         key = "Rated current"
+    if key == "Power - Max":
+        key = "Power"
+    if key == "Voltage - Breakover":
+        key = "Voltage - Breakdown (Min)"
+    if key == "Gate Threshold Voltage-VGE(th)":
+        key = "Vgs(th) (Max) @ Id"
     return key
 
 def pullExtraAttributes(component):

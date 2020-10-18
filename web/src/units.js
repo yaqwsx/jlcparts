@@ -2,7 +2,8 @@
 // Return comparator for given quantity
 export function quantityComparator(quantityName) {
     const numericQuantities = [
-        "resistance", "voltage", "current", "power"
+        "resistance", "voltage", "current", "power", "count", "capacitance",
+        "length", "inductance"
     ];
     if (numericQuantities.includes(quantityName))
         return numericComparator;
@@ -15,7 +16,12 @@ export function quantityFormatter(quantityName) {
         resistance: resistanceFormatter,
         voltage: siFormatter("V"),
         current: siFormatter("A"),
-        power: siFormatter("W")
+        power: siFormatter("W"),
+        capacitance: siFormatter("F"),
+        frequency: siFormatter("Hz"),
+        length: siFormatter("m"),
+        inductance: siFormatter("H"),
+        count: x => String(x)
     };
 
     let formatter = formatters[quantityName];

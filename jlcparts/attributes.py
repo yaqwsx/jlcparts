@@ -31,16 +31,17 @@ def readWithSiPrefix(value):
     """
     value = value.strip()
     unitPrexies = {
-        "p": 10e-12,
-        "n": 10e-9,
-        "u": 10e-6,
-        "μ": 10e-6,
-        "µ": 10e-6,
-        "?": 10e-3, # There is common typo instead of 'm' there is '?' - the keys are close on keyboard
-        "m": 10e-3,
-        "k": 10e3,
-        "M": 10e6,
-        "G": 10e9
+        "p": 1e-12,
+        "n": 1e-9,
+        "u": 1e-6,
+        "μ": 1e-6,
+        "µ": 1e-6,
+        "?": 1e-3, # There is a common typo instead of 'm' there is '?' - the keys are close on keyboard
+        "m": 1e-3,
+        "k": 1e3,
+        "K": 1e3,
+        "M": 1e6,
+        "G": 1e9
     }
     if value == "-" or value == "":
         return "NaN"
@@ -74,6 +75,7 @@ def readCurrent(value):
     """
     Given a string, try to parse resistance and return it as Ohms (float)
     """
+    value = erase(value, ["PNP"])
     value = value.replace("A", "").strip()
     return readWithSiPrefix(value)
 
@@ -93,6 +95,18 @@ def readPower(value):
         unit = matches.group(3).strip()
         value = str(float(numerator) / float(denominator)) + unit
     value = value.replace("W", "").strip()
+    return readWithSiPrefix(value)
+
+def readCapacitance(value):
+    value = value.replace("F", "").strip()
+    return readWithSiPrefix(value)
+
+def readFrequency(value):
+    value = value.replace("Hz", "").strip()
+    return readWithSiPrefix(value)
+
+def readInductance(value):
+    value = value.replace("H", "").strip()
     return readWithSiPrefix(value)
 
 def resistanceAttribute(value):
@@ -117,7 +131,19 @@ def impedanceAttribute(value):
 
 
 def voltageAttribute(value):
-    value = readVoltage(value)
+    value = re.sub(r"\(.*?\)", "", value)
+     # Remove multiple current values
+    value = value.split("x")[-1]
+    value = value.split("/")[-1]
+    value = value.split(",")[-1]
+    value = value.split("~")[-1]
+    value = value.replace("VIN", "V").replace("Vin", "V")
+    value = erase(value, "±")
+
+    if value.strip() in ["-", "Tracking", "nV"]:
+        value = "NaN"
+    else:
+        value = readVoltage(value)
     return {
         "format": "${voltage}",
         "primary": "voltage",
@@ -127,6 +153,13 @@ def voltageAttribute(value):
     }
 
 def currentAttribute(value):
+    value = re.sub(r"\(.*?\)", "", value)
+    # Remove multiple current values
+    value = value.split("x")[-1]
+    value = value.split("/")[-1]
+    value = value.split(",")[-1]
+    # Replace V/A typo
+    value = value.replace("V", "A")
     value = readCurrent(value)
     return {
         "format": "${current}",
@@ -138,12 +171,55 @@ def currentAttribute(value):
 
 def powerAttribute(value):
     value = re.sub(r"\(.*?\)", "", value)
+    # Replace V/W typo
+    value = value.replace("V", "W")
+
     p = readPower(value)
     return {
         "format": "${power}",
-        "default": "Power",
+        "default": "power",
         "values": {
             "power": [p, "power"]
+        }
+    }
+
+def countAttribute(value):
+    if value == "-":
+        return {
+            "format": "${count}",
+            "default": "count",
+            "values": {
+                "count": ["NaN", "count"]
+            }
+        }
+    value = re.sub(r"\(.*?\)", "", value)
+    count = int(value)
+    return {
+        "format": "${count}",
+        "default": "count",
+        "values": {
+            "count": [count, "count"]
+        }
+    }
+
+
+def capacitanceAttribute(value):
+    value = readCapacitance(value)
+    return {
+        "format": "${capacitance}",
+        "primary": "capacitance",
+        "values": {
+            "capacitance": [value, "capacitance"]
+        }
+    }
+
+def inductanceAttribute(value):
+    value = readInductance(value)
+    return {
+        "format": "${inductance}",
+        "primary": "inductance",
+        "values": {
+            "inductance": [value, "inductance"]
         }
     }
 
@@ -191,7 +267,7 @@ def rdsOnMaxAtIdsAtVgs(value):
             }
         }
 
-def continuousDrainCurrent(value):
+def continuousTransistorCurrent(value, symbol):
     """
     Can parse values like '10A', '10A,12A', '1OA(Tc)'
     """
@@ -203,20 +279,20 @@ def continuousDrainCurrent(value):
         i1 = readCurrent(s[0])
         i2 = readCurrent(s[1])
         return {
-            "format": "${Id 1}, ${Id 2}",
-            "default": "Id 1",
+            "format": "${" + symbol + " 1}, ${" + symbol + " 2}",
+            "default": symbol + " 1",
             "values": {
-                "Id 1": [i1, "current"],
-                "Id 2": [i2, "current"]
+                symbol + " 1": [i1, "current"],
+                symbol + " 2": [i2, "current"]
             }
         }
     else:
         i = readCurrent(value)
         return {
-            "format": "${Id}",
-            "default": "Id",
+            "format": "${" + symbol + "}",
+            "default": symbol,
             "values": {
-                "Id": [i, "current"]
+                symbol: [i, "current"]
             }
         }
 
@@ -309,3 +385,197 @@ def vgsThreshold(value):
                 "Id": [i, "current"]
             }
         }
+
+def esr(value):
+    """
+    Parse equivalent series resistance in the form '<resistance> @ <frequency>'
+    """
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "esr",
+            "values": {
+                "esr": ["NaN", "resistance"],
+                "frequency": ["NaN", "frequency"]
+            }
+        }
+    value = erase(value, ["(", ")"]) # For resonators, the value is enclosed in parenthesis
+    matches = re.search(r"\d+(\.\d+)?\s*?[a-zA-Z]?(Ohm|Ω)", value)
+    res = readResistance(matches.group(0).replace(" ", ""))
+
+    matches = re.search(r"\d+(\.\d+)?[a-zA-Z]?Hz", value)
+    if matches:
+        freq = readFrequency(matches.group(0))
+        return {
+            "format": "${esr} @ ${frequency}",
+            "default": "esr",
+            "values": {
+                "esr": [res, "resistance"],
+                "frequency": [freq, "frequency"]
+            }
+        }
+    else:
+        return {
+            "format": "${esr}",
+            "default": "esr",
+            "values": {
+                "esr": [res, "resistance"]
+            }
+        }
+
+def rippleCurrent(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "current",
+            "values": {
+                "current": ["NaN", "current"],
+                "frequency": ["NaN", "frequency"]
+            }
+        }
+    s = value.split("@")
+    i = readCurrent(s[0])
+    f = readFrequency(s[1])
+    return {
+        "format": "${current} @ ${frequency}",
+        "default": "current",
+        "values": {
+            "current": [i, "current"],
+            "frequency": [f, "frequency"]
+        }
+    }
+
+def sizeMm(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "width",
+            "values": {
+                "width": ["NaN", "length"],
+                "height": ["NaN", "length"]
+            }
+        }
+    s = value.split("x")
+    w = float(s[0]) / 1000
+    h = float(s[1]) / 1000
+    return {
+        "format": "${width}×${height}",
+        "default": "width",
+        "values": {
+            "width": [w, "length"],
+            "height": [h, "length"]
+        }
+    }
+
+def forwardVoltage(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "Vf",
+            "values": {
+                "Vf": ["NaN", "voltage"],
+                "If": ["NaN", "current"]
+            }
+        }
+    value = erase(value, ["<"])
+    value = re.sub(r"\(.*?\)", "", value)
+    s = value.split("@")
+
+    vStr = s[0].replace("A", "V") # Common typo
+    v = readVoltage(vStr)
+    i = readCurrent(s[1])
+    return {
+        "format": "${Vf} @ ${If}",
+        "default": "Vf",
+        "values": {
+            "Vf": [v, "voltage"],
+            "If": [i, "current"]
+        }
+    }
+
+def voltageRange(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "Vmin",
+            "values": {
+                "Vmin": ["NaN", "voltage"],
+                "Vmax": ["NaN", "voltage"]
+            }
+        }
+    value = re.sub(r"\(.*?\)", "", value)
+    s = value.split("~")
+    vMin = s[0].split(",")[0].split("/")[0]
+    vMin = readVoltage(vMin)
+    if len(s) == 2:
+        return {
+            "format": "${Vmin} ~ ${Vmax}",
+            "default": "Vmin",
+            "values": {
+                "Vmin": [vMin, "voltage"],
+                "Vmax": [readVoltage(s[1]), "voltage"]
+            }
+        }
+    return {
+            "format": "${Vmin}",
+            "default": "Vmin",
+            "values": {
+                "Vmin": [vMin, "voltage"]
+            }
+        }
+
+def clampingVoltage(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "Vc",
+            "values": {
+                "Vc": ["NaN", "voltage"],
+                "Ic": ["NaN", "current"]
+            }
+        }
+    value = re.sub(r"\(.*?\)", "", value)
+    s = value.split("@")
+    vC = s[0].split(",")[0].split("/")[0]
+    vC = vC.replace("A", "V") # Common typo
+    vC = readVoltage(vC)
+    if len(s) == 2:
+        return {
+            "format": "${Vc} @ ${Ic}",
+            "default": "Vc",
+            "values": {
+                "Vc": [vC, "voltage"],
+                "Ic": [readCurrent(s[1]), "current"]
+            }
+        }
+    return {
+            "format": "${Vc}",
+            "default": "Vc",
+            "values": {
+                "Vc": [vC, "voltage"]
+            }
+        }
+
+def vceBreakdown(value):
+    value = erase(value, "PNP").split(",")[0]
+    return voltageAttribute(value)
+
+def vceOnMax(value):
+    matched = re.match(r"(.*)@(.*),(.*)", value)
+    if matched:
+        vce = readVoltage(matched.group(1))
+        vge = readVoltage(matched.group(2))
+        ic = readCurrent(matched.group(3))
+    else:
+        vce = "NaN"
+        vge = "NaN"
+        ic = "NaN"
+    return {
+        "format": "${Vce} @ ${Vge}, ${Ic}",
+        "default": "Vce",
+        "values": {
+            "Vce": [vce, "voltage"],
+            "Vge": [vge, "voltage"],
+            "Ic": [ic, "current"]
+        }
+    }

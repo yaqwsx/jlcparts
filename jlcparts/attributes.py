@@ -504,7 +504,10 @@ def voltageRange(value):
             }
         }
     value = re.sub(r"\(.*?\)", "", value)
-    s = value.split("~")
+    if ".." in value:
+        s = value.split("..")
+    else:
+        s = value.split("~")
     vMin = s[0].split(",")[0].split("/")[0]
     vMin = readVoltage(vMin)
     if len(s) == 2:

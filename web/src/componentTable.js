@@ -6,6 +6,7 @@ import { LazyLoadImage } from 'react-lazy-load-image-component';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
+import { AttritionInfo, getQuantityPrice } from "./jlc"
 
 enableMapSet();
 
@@ -56,16 +57,6 @@ function sortImagesSrcBySize(images) {
         return b - a;
     });
     return imgCollection;
-}
-
-function getQuantityPrice(quantity, pricelist) {
-    for (let pricepoint of pricelist) {
-        if (quantity >= pricepoint.qFrom && (quantity <= pricepoint.qTo || !pricepoint.qTo))
-            return pricepoint.price;
-    }
-    if (pricelist[0])
-        return pricelist[0].price;
-    return undefined;
 }
 
 function fullTextComponentsFilter(component, words) {
@@ -515,7 +506,8 @@ export class ComponentOverview extends React.Component {
                             expandableContent={c =>
                                 <ExpandedComponent
                                     component={c}
-                                    categories={this.state.rawCategories}/>}/>
+                                    categories={this.state.rawCategories}
+                                    componentQuantity={this.state.quantity}/>}/>
                     </div>
                 :   <div className="p-8 text-center text-lg">
                         No components match the selected criteria.
@@ -582,7 +574,7 @@ function ExpandedComponent(props) {
             </table>
         </div>
         <div className="w-full md:w-2/5 p-3">
-        <table className="w-full">
+            <table className="w-full border-b-2">
                 <thead className="border-b-2 font-bold">
                     <tr>
                         <td>Quantity</td>
@@ -602,6 +594,7 @@ function ExpandedComponent(props) {
                    })
                 }</tbody>
             </table>
+            <AttritionInfo component={comp} quantity={props.componentQuantity} />
         </div>
     </div>
 }

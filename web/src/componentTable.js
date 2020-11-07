@@ -359,13 +359,20 @@ export class ComponentOverview extends React.Component {
             {
                 name: "MFR (click for datasheet)",
                 sortable: true,
-                displayGetter: x => <a
-                    href={x.datasheet}
-                    onClick={e => e.stopPropagation()}
-                    target="_blank"
-                    rel="noopener noreferrer">
-                        <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
-                    </a>,
+                displayGetter: x => <>
+                    <CopyToClipboard text={x.mfr}>
+                        <button className="py-2 px-4 pl-1" onClick={e => e.stopPropagation()}>
+                            <FontAwesomeIcon icon="clipboard"/>
+                        </button>
+                    </CopyToClipboard>
+                    <a
+                        href={x.datasheet}
+                        onClick={e => e.stopPropagation()}
+                        target="_blank"
+                        rel="noopener noreferrer">
+                            <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
+                    </a>
+                </>,
                 comparator: (a, b) => a.mfr.localeCompare(b.mfr),
                 className: "px-1 whitespace-no-wrap"
             },
@@ -375,6 +382,11 @@ export class ComponentOverview extends React.Component {
                 className: "px-1 whitespace-no-wrap text-center",
                 displayGetter: x => {
                     return <>
+                        <CopyToClipboard text={x.lcsc}>
+                            <button className="py-2 px-4 pl-1" onClick={e => e.stopPropagation()}>
+                                <FontAwesomeIcon icon="clipboard"/>
+                            </button>
+                        </CopyToClipboard>
                         <a href={x.url}
                             className="underline text-blue-600"
                             onClick={e => e.stopPropagation()}
@@ -382,11 +394,6 @@ export class ComponentOverview extends React.Component {
                             rel="noopener noreferrer">
                                 {x.lcsc}
                         </a>
-                        <CopyToClipboard text={x.lcsc}>
-                            <button className="py-2 px-4" onClick={e => e.stopPropagation()}>
-                                <FontAwesomeIcon icon="clipboard"/>
-                            </button>
-                        </CopyToClipboard>
                     </>
                 },
                 comparator: (a, b) => a.lcsc.localeCompare(b.lcsc)

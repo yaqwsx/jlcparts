@@ -18,7 +18,7 @@ export class AttritionInfo extends React.Component {
     }
 
     componentDidMount() {
-        fetch("https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
+        fetch("https://cors-anywhere.herokuapp.com/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
                 .then(response => {
                     if (!response.ok) {
                         console.log(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
@@ -32,7 +32,7 @@ export class AttritionInfo extends React.Component {
     }
 
     price() {
-        let q = Math.max(this.props.quantity + this.state.data.lossNumber,
+        let q = Math.max(parseInt(this.props.quantity) + parseInt(this.state.data.lossNumber),
             this.state.data.leastNumber);
         return q * getQuantityPrice(q, this.props.component.price);
     }

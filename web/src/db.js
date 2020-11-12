@@ -1,5 +1,10 @@
 import Dexie from 'dexie';
 
+if (!window.indexedDB) {
+    alert("This page requires IndexedDB to work.\n" +
+            "Your browser does not support it. Please upgrade your browser.");
+}
+
 async function persist() {
 return await navigator.storage && navigator.storage.persist &&
     navigator.storage.persist();

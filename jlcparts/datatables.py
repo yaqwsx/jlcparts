@@ -35,6 +35,13 @@ def extractAttributesFromDescription(description):
         return descriptionAttributes.capacitor(description)
     return {}
 
+def normalizeUnicode(value):
+    """
+    Replace unexpected unicode sequence with a resonable ones
+    """
+    value = value.replace("（", " (").replace("）", ")")
+    return value
+
 def normalizeAttribute(key, value):
     """
     Takes a name of attribute and its value (usually a string) and returns a
@@ -48,6 +55,7 @@ def normalizeAttribute(key, value):
     The fallback is unit "string"
     """
     key = normalizeAttributeKey(key)
+    value = normalizeUnicode(value)
     if key in ["Resistance", "Resistance in Ohms @ 25°C", "DC Resistance"]:
         value = attributes.resistanceAttribute(value)
     elif key in ["Balance Port Impedence", "Unbalance Port Impedence"]:
@@ -58,18 +66,20 @@ def normalizeAttribute(key, value):
             "Voltage - DC Spark Over (Nom)", "Voltage - Peak Reverse (Max)",
             "Voltage - Reverse Standoff (Typ)", "Voltage - Gate Trigger (Vgt) (Max)",
             "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
-            "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)"]:
+            "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)",
+            "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage"]:
         value = attributes.voltageAttribute(value)
     elif key in ["Rated current", "surge current", "Current - Average Rectified (Io)",
                  "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
                  "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
                  "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
-                 "Current - Supply (Max)", "Output Current", "Output Current (Max)"]:
+                 "Current - Supply (Max)", "Output Current", "Output Current (Max)",
+                 "Output / Channel Current"]:
         value = attributes.currentAttribute(value)
     elif key in ["Power", "Power Per Element"]:
         value = attributes.powerAttribute(value)
     elif key in ["Number of Pins", "Number of Resistors", "Number of Loop",
-                 "Number of Regulators"]:
+                 "Number of Regulators", "Number of Outputs"]:
         value = attributes.countAttribute(value)
     elif key in ["Capacitance"]:
         value = attributes.capacitanceAttribute(value)

@@ -769,7 +769,7 @@ class MultiSelectBox extends React.Component {
                         style={selectStyle}
                         value={this.props.value} onChange={this.handleSelectChange}>
                     {this.props.options.map(option => {
-                        return <option value={option["key"]} key={option["key"]}>
+                        return <option value={option["key"]} key={option["key"]} title={option["value"]}>
                                     {option["value"]}
                             </option>;
                     })}

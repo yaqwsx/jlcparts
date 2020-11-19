@@ -67,14 +67,15 @@ def normalizeAttribute(key, value):
             "Voltage - Reverse Standoff (Typ)", "Voltage - Gate Trigger (Vgt) (Max)",
             "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
             "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)",
-            "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage"]:
+            "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage",
+            "Voltage - Input (Min)"]:
         value = attributes.voltageAttribute(value)
     elif key in ["Rated current", "surge current", "Current - Average Rectified (Io)",
                  "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
                  "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
                  "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
                  "Current - Supply (Max)", "Output Current", "Output Current (Max)",
-                 "Output / Channel Current"]:
+                 "Output / Channel Current", "Current - Output"]:
         value = attributes.currentAttribute(value)
     elif key in ["Power", "Power Per Element"]:
         value = attributes.powerAttribute(value)

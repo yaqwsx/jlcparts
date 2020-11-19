@@ -137,6 +137,7 @@ def voltageAttribute(value):
     value = value.split("/")[-1]
     value = value.split(",")[-1]
     value = value.split("~")[-1]
+    value = value.split("or")[-1]
     value = value.replace("VIN", "V").replace("Vin", "V")
     value = erase(value, "±")
 
@@ -153,11 +154,14 @@ def voltageAttribute(value):
     }
 
 def currentAttribute(value):
+    value = erase(value, ["±", "Up to"])
     value = re.sub(r"\(.*?\)", "", value)
     # Remove multiple current values
     value = value.split("x")[-1]
     value = value.split("/")[-1]
     value = value.split(",")[-1]
+    value = value.split("~")[-1]
+    value = value.split("or")[-1]
     # Replace V/A typo
     value = value.replace("V", "A")
     value = readCurrent(value)

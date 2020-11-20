@@ -17,7 +17,7 @@ script:
   - $SH "wget https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip && head -c 160 cache.json"
   - $SH "wget -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo"
   - $SH "libreoffice --headless --convert-to csv --infilter=CSV:44,34,76,1 parts.xls && head parts.csv"
-  - $SH "jlcparts getlibrary --cache cache.json --age 1000 parts.csv jlcdata.json && cp jlcdata.json cache.json"
+  - $SH "jlcparts getlibrary --cache cache.json --age 200 parts.csv jlcdata.json && cp jlcdata.json cache.json"
   - $SH "jlcparts buildtables jlcdata.json web/build/data"
   - $SH "zip web/build/data/cache.zip cache.json"
   - $SH "if [ $TRAVIS_REPO_SLUG = 'yaqwsx/jlcparts-dev' ] ; then echo 'jlcparts-dev.honzamrazek.cz' > web/build/CNAME; fi"

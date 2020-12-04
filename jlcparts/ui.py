@@ -2,6 +2,7 @@ import click
 import shutil
 import os
 import time
+import sys
 from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies
 from jlcparts.datatables import buildtables
 

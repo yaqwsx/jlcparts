@@ -5,6 +5,7 @@ services:
 env: SH="docker exec -t container bash -c"
 
 before_install:
+  - echo “$DOCKERHUB_TOKEN | docker login -u “$DOCKERHUB_USERNAME” --password-stdin
   - docker run -d --name container -v $(pwd):/travis -w /travis yaqwsx/jlcparts tail -f /dev/null
   - docker ps
 

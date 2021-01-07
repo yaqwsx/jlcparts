@@ -12,20 +12,46 @@ import { ComponentOverview } from './componentTable'
 library.add(fas, far, fab);
 
 function Header(props) {
-  return <div className="w-full px-2 py-8 flex">
-    <img src="./favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
-    <div className="flex-1">
-      <h1 className="text-4xl font-bold">
-        JLC PCB SMD Assembly Component Catalogue
-      </h1>
-      <p>
-        Parametric search for components offered by <a href="https://jlcpcb.com">JLC PCB</a> SMD assembly service.
-      </p>
-      <p>
-        Read more at project's <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/yaqwsx/jlcparts">GitHub page</a>.
-      </p>
+  return <>
+    <div className="w-full px-2 py-8 flex">
+      <img src="./favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
+      <div className="flex-1">
+        <h1 className="text-4xl font-bold">
+          JLC PCB SMD Assembly Component Catalogue
+        </h1>
+        <p>
+          Parametric search for components offered by <a href="https://jlcpcb.com">JLC PCB</a> SMD assembly service.
+        </p>
+        <p>
+          Read more at project's <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/yaqwsx/jlcparts">GitHub page</a>.
+        </p>
+      </div>
     </div>
-  </div>
+    <p className="rounded my-3 p-2 border-blue-500 border-2">
+      Do you enjoy this site? Consider supporting me so I can actively maintain projects like this one!
+      Read more about <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/sponsors/yaqwsx">my story</a>.
+      <table>
+        <tr>
+          <td className="pr-2 text-right">
+            GitHub Sponsors:
+          </td>
+          <td>
+            <iframe src="https://github.com/sponsors/yaqwsx/button" title="Sponsor yaqwsx" height="35" width="116" style={{"border": 0}} className="inline-block"></iframe>
+          </td>
+        </tr>
+        <tr>
+          <td className="pr-2 text-right">
+            Ko-Fi:
+          </td>
+          <td>
+            <a href="https://ko-fi.com/E1E2181LU">
+              <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-Fi button" className="inline-block"/>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </p>
+  </>
 }
 
 function Footer(props) {

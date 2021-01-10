@@ -690,7 +690,7 @@ class CategoryFilter extends React.Component {
                 this.selectAll(draft);
         }), () => {
             clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(this.notifyParent(), 3000);
+            this.searchTimeout = setTimeout(this.notifyParent, 500);
         });
     }
 

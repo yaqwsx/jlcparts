@@ -405,7 +405,17 @@ export class ComponentOverview extends React.Component {
                 sortable: true,
                 className: "px-1 whitespace-no-wrap text-center",
                 displayGetter: x => {
+                    let discontinued = <></>;
+                    if (x.attributes["Status"]) {
+                        let flag = formatAttribute(x.attributes["Status"]);
+                        if (flag === "Discontinued") {
+                            discontinued = <FontAwesomeIcon icon="exclamation-triangle"
+                                color="red" className="mx-2"
+                                title="Warning, this component have been discontinued"/>;
+                        }
+                    }
                     return <>
+                        {discontinued}
                         <CopyToClipboard text={x.lcsc}>
                             <button className="py-2 px-4 pl-1" onClick={e => e.stopPropagation()}>
                                 <FontAwesomeIcon icon="clipboard"/>

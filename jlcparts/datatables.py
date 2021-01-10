@@ -154,9 +154,15 @@ def pullExtraAttributes(component):
     Turn common properties (e.g., base/extended) into attributes. Return them as
     a dictionary
     """
+    status = component["extra"].get("status", "-")
+    if status == "up":
+        status = "Active"
+    if status == "down":
+        status = "Discontinued"
     return {
         "Basic/Extended": "Basic" if component["basic"] else "Extended",
-        "Package": component["package"]
+        "Package": component["package"],
+        "Status": status
     }
 
 def extractComponent(component, schema):

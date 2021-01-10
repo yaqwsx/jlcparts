@@ -91,6 +91,39 @@ function valueFootprint(value) {
     return JSON.stringify(value);
 }
 
+// Filter an array asynchronously without excessively blocking UI
+function filterByChunks(array, predicate, chunkSize) {
+    let result = [];
+    let idx = 0;
+    let resolve = null;
+    let fail = null;
+    let aborted = false;
+    let filter = () => {
+        if (aborted) {
+            fail("Aborted");
+            return;
+        }
+        let chunk = chunkSize;
+        while (chunk-- && idx < array.length) {
+            if (predicate(array[idx]))
+                result.push(array[idx]);
+            ++idx;
+        }
+        if (idx < array.length) {
+            setTimeout(filter, 0);
+        } else {
+            resolve(result);
+        }
+    };
+    let promise = new Promise((r, f) => {
+        resolve = r;
+        fail = f;
+        setTimeout(filter, 0);
+    });
+    let abortFunction = () => { aborted = true; }
+    return [promise, abortFunction];
+}
+
 function Spinbox() {
     return <div className="w-full text-center">
         <svg className="animate-spin -ml-1 m-8 h-5 w-5 text-black mx-auto inline-block"
@@ -608,7 +641,8 @@ class CategoryFilter extends React.Component {
         this.state = {
             categories: {},
             allCategories: false,
-            searchString: ""
+            searchString: "",
+            abort: () => {}
         }
     }
 
@@ -633,11 +667,18 @@ class CategoryFilter extends React.Component {
     // Return query containing components based on current categories and
     // full-text search
     async components() {
+        this.state.abort();
         let query;
         if (this.state.allCategories)
             query = db.components;
         else
             query = db.components.where("category").anyOf(this.collectActiveCategories());
+        // In theory, we should be able to cancel transactions, however, it seems not to be necessary
+        // Leaving this code here for future reference
+        // let [componentsPromise, cAbort] = cancellableDexieQuery("components", () => query.toArray());
+        // this.setState({"abort": cAbort});
+        // let components = await componentsPromise.catch(_ => []);
+        // this.setState({"abort": () =>{}});
         let components = await query.toArray();
         if (this.state.searchString.length === 0)
             return components;
@@ -649,7 +690,11 @@ class CategoryFilter extends React.Component {
             return components;
         console.log("Starting search...");
         let t0 = performance.now()
-        let filtered = components.filter( component => fullTextComponentsFilter(component, words));
+        let [filteredPromise, fAbort] = await filterByChunks(components,
+            component => fullTextComponentsFilter(component, words), 2000);
+        this.setState({"abort": fAbort});
+        let filtered = await filteredPromise.catch(_ => []);
+        this.setState({"abort": () =>{}});
         let t1 = performance.now();
         console.log("Search took", t1 - t0, "ms");
         return filtered;
@@ -690,7 +735,7 @@ class CategoryFilter extends React.Component {
                 this.selectAll(draft);
         }), () => {
             clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(this.notifyParent, 500);
+            this.searchTimeout = setTimeout(this.notifyParent, 350);
         });
     }
 

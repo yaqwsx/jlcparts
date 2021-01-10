@@ -222,3 +222,25 @@ async function deleteCategory(category) {
         await db.categories.delete(extractCategoryKey(category));
     });
 }
+
+
+// See https://stackoverflow.com/questions/64114482/aborting-dexie-js-query
+export function cancellableDexieQuery(includedTables, querierFunction) {
+    let tx = null;
+    let cancelled = false;
+    const promise = db.transaction('r', includedTables, () => {
+        if (cancelled)
+            throw new Dexie.AbortError('Query was cancelled');
+        tx = Dexie.currentTransaction;
+        return querierFunction();
+    });
+    return [
+        promise,
+        () => {
+            cancelled = true; // In case transaction hasn't been started yet.
+            if (tx)
+                tx.abort(); // If started, abort it.
+            tx = null; // Avoid calling abort twice.
+        }
+    ];
+}

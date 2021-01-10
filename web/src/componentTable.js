@@ -3,6 +3,7 @@ import React from "react";
 import { produce, enableMapSet } from "immer";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LazyLoadImage } from 'react-lazy-load-image-component';
+import { Link } from 'react-scroll';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
@@ -528,8 +529,20 @@ export class ComponentOverview extends React.Component {
 
         return <>
             {filterComponents}
+            <div className="w-full flex p-2">
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="property-select" spy={true} smooth={true} duration={100} >
+                    ↑ <span class="text-bold text-green-500">■</span> Scroll to properties <span class="text-bold text-green-500">■</span> ↑
+                </Link>
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="category-select" spy={true} smooth={true} duration={100} >
+                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                </Link>
+            </div>
             {filteredComponents.length
-                ?  <div className="pt-4">
+                ?  <div className="pt-4" id="results">
                         <div className="w-full flex py-2">
                             <p className="flex-none p-2">Components matching query: {filteredComponents.length}</p>
                             <CopyToClipboard text={filteredComponents.map(c => `wget ${c.datasheet}`).join("\n")}>
@@ -552,7 +565,7 @@ export class ComponentOverview extends React.Component {
                                     categories={this.state.rawCategories}
                                     componentQuantity={this.state.quantity}/>}/>
                     </div>
-                :   <div className="p-8 text-center text-lg">
+                :   <div className="p-8 text-center text-lg" id="results">
                         No components match the selected criteria.
                     </div>
             }
@@ -762,7 +775,9 @@ class CategoryFilter extends React.Component {
     render() {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
             <div className="flex">
-                <h3 className="block flex-1 text-lg mx-2 font-bold">Select category</h3>
+                <h3 className="block flex-1 text-lg mx-2 font-bold" id="category-select">
+                    <span class="text-bold text-red-500">⛶</span> Select category
+                </h3>
                 <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectAll}>
                     Select all categories
                 </button>
@@ -785,6 +800,18 @@ class CategoryFilter extends React.Component {
                     Clear search
                 </button>
             </div>
+            <div className="w-full flex p-2">
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="results" spy={true} smooth={true} duration={100} >
+                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                </Link>
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="property-select" spy={true} smooth={true} duration={100} >
+                    ↓ <span class="text-bold text-green-500">■</span> Scroll to properties <span class="text-bold text-green-500">■</span> ↓
+                </Link>
+            </div>
             <div className="flex flex-wrap items-stretch">
                 {this.props.categories.map(item => {
                     return <MultiSelectBox
@@ -796,6 +823,18 @@ class CategoryFilter extends React.Component {
                         onChange={value => {
                             this.handleCategoryChange(item["category"], value); } }/>;
                 })}
+            </div>
+            <div className="w-full flex p-2">
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="results" spy={true} smooth={true} duration={100} >
+                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                </Link>
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="category-select" spy={true} smooth={true} duration={100} >
+                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                </Link>
             </div>
         </div>
     }
@@ -947,7 +986,9 @@ class PropertySelector extends React.Component {
 class PropertySelect extends React.Component {
     render() {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
-            <h3 className="block w-full text-lg mx-2 font-bold">Property filter</h3>
+            <h3 className="block w-full text-lg mx-2 font-bold" id="property-select">
+                <span class="text-bold text-green-500">⛶</span> Property filter
+            </h3>
             <div className="flex flex-wrap items-stretch">
                 { this.props.properties.length === 0
                 ? <p className="mx-2">
@@ -966,6 +1007,18 @@ class PropertySelect extends React.Component {
                         onPropertyRequired={value => this.props.onPropertyRequired(item.property, value) }
                     />;
                 })}
+            </div>
+            <div className="w-full flex p-2">
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="results" spy={true} smooth={true} duration={100} >
+                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                </Link>
+                <Link activeClass="active"
+                    className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
+                    to="category-select" spy={true} smooth={true} duration={100} >
+                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                </Link>
             </div>
         </div>
     }

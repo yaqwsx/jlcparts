@@ -694,6 +694,16 @@ class CategoryFilter extends React.Component {
         });
     }
 
+    handleClear = (e) => {
+        console.log("Here!");
+        this.setState(produce(this.state, draft => {
+            draft.searchString = "";
+        }), () => {
+            console.log("Notifying parent");
+            this.notifyParent();
+        });
+    }
+
     render() {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
             <div className="flex">
@@ -714,7 +724,11 @@ class CategoryFilter extends React.Component {
                     className="block flex-1 bg-white appearance-none border-2 border-gray-500 rounded w-full
                                 py-1 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
                                 focus:border-blue-500"
+                    value={this.state.searchString}
                     onChange={this.handleFulltextChange}/>
+                <button className="flex-none block ml-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleClear}>
+                    Clear search
+                </button>
             </div>
             <div className="flex flex-wrap items-stretch">
                 {this.props.categories.map(item => {

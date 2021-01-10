@@ -27,30 +27,32 @@ function Header(props) {
         </p>
       </div>
     </div>
-    <p className="rounded my-3 p-2 border-blue-500 border-2">
+    <div className="rounded my-3 p-2 border-blue-500 border-2">
       Do you enjoy this site? Consider supporting me so I can actively maintain projects like this one!
       Read more about <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/sponsors/yaqwsx">my story</a>.
       <table>
-        <tr>
-          <td className="pr-2 text-right">
-            GitHub Sponsors:
-          </td>
-          <td>
-            <iframe src="https://github.com/sponsors/yaqwsx/button" title="Sponsor yaqwsx" height="35" width="116" style={{"border": 0}} className="inline-block"></iframe>
-          </td>
-        </tr>
-        <tr>
-          <td className="pr-2 text-right">
-            Ko-Fi:
-          </td>
-          <td>
-            <a href="https://ko-fi.com/E1E2181LU">
-              <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-Fi button" className="inline-block"/>
-            </a>
-          </td>
-        </tr>
+        <tbody>
+          <tr>
+            <td className="pr-2 text-right">
+              GitHub Sponsors:
+            </td>
+            <td>
+              <iframe src="https://github.com/sponsors/yaqwsx/button" title="Sponsor yaqwsx" height="35" width="116" style={{"border": 0}} className="inline-block"></iframe>
+            </td>
+          </tr>
+          <tr>
+            <td className="pr-2 text-right">
+              Ko-Fi:
+            </td>
+            <td>
+              <a href="https://ko-fi.com/E1E2181LU">
+                <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-Fi button" className="inline-block"/>
+              </a>
+            </td>
+          </tr>
+        </tbody>
       </table>
-    </p>
+    </div>
   </>
 }
 

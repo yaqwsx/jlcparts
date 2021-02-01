@@ -45,7 +45,7 @@ function parseImageSize(imageSizeStr) {
     return sizes.map(x => parseInt(x));
 }
 
-function sortImagesSrcBySize(images) {
+export function sortImagesSrcBySize(images) {
     let imgCollection = [];
     for (var sizeStr in images) {
         if (sizeStr === "sort")
@@ -77,7 +77,7 @@ function componentText(component) {
     ).toLocaleLowerCase();
 }
 
-function formatAttribute(attribute) {
+export function formatAttribute(attribute) {
     let varNames = Object.keys(attribute.values).map(x => "\\${" + x + "}");
 
     let regex = new RegExp('(' + varNames.join('|') + ')', 'g');
@@ -125,7 +125,7 @@ function filterByChunks(array, predicate, chunkSize) {
     return [promise, abortFunction];
 }
 
-function Spinbox() {
+export function Spinbox() {
     return <div className="w-full text-center">
         <svg className="animate-spin -ml-1 m-8 h-5 w-5 text-black mx-auto inline-block"
              xmlns="http://www.w3.org/2000/svg"
@@ -137,7 +137,19 @@ function Spinbox() {
     </div>
 }
 
-class ZoomableLazyImage extends React.Component {
+export function InlineSpinbox(props) {
+    return <div className={`inline text-center ${props.className}`}>
+        <svg className="animate-spin h-5 w-5 text-black mx-auto inline-block"
+             xmlns="http://www.w3.org/2000/svg"
+             fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+}
+
+
+export class ZoomableLazyImage extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
@@ -533,12 +545,12 @@ export class ComponentOverview extends React.Component {
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="property-select" spy={true} smooth={true} duration={100} >
-                    ↑ <span class="text-bold text-green-500">■</span> Scroll to properties <span class="text-bold text-green-500">■</span> ↑
+                    ↑ <span className="text-bold text-green-500">■</span> Scroll to properties <span className="text-bold text-green-500">■</span> ↑
                 </Link>
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="category-select" spy={true} smooth={true} duration={100} >
-                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                    ↑ <span className="text-bold text-red-500">■</span> Scroll to search bar <span className="text-bold text-red-500">■</span> ↑
                 </Link>
             </div>
             {filteredComponents.length
@@ -574,7 +586,7 @@ export class ComponentOverview extends React.Component {
     }
 }
 
-function findCategoryById(categories, id) {
+export function findCategoryById(categories, id) {
     for (let category of categories) {
         if (category.id === id )
             return category;
@@ -776,7 +788,7 @@ class CategoryFilter extends React.Component {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
             <div className="flex">
                 <h3 className="block flex-1 text-lg mx-2 font-bold" id="category-select">
-                    <span class="text-bold text-red-500">⛶</span> Select category
+                    <span className="text-bold text-red-500">⛶</span> Select category
                 </h3>
                 <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectAll}>
                     Select all categories
@@ -804,12 +816,12 @@ class CategoryFilter extends React.Component {
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="results" spy={true} smooth={true} duration={100} >
-                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                    ↓ <span className="text-bold text-blue-500">■</span> Scroll to results <span className="text-bold text-blue-500">■</span> ↓
                 </Link>
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="property-select" spy={true} smooth={true} duration={100} >
-                    ↓ <span class="text-bold text-green-500">■</span> Scroll to properties <span class="text-bold text-green-500">■</span> ↓
+                    ↓ <span className="text-bold text-green-500">■</span> Scroll to properties <span className="text-bold text-green-500">■</span> ↓
                 </Link>
             </div>
             <div className="flex flex-wrap items-stretch">
@@ -828,12 +840,12 @@ class CategoryFilter extends React.Component {
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="results" spy={true} smooth={true} duration={100} >
-                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                    ↓ <span className="text-bold text-blue-500">■</span> Scroll to results <span className="text-bold text-blue-500">■</span> ↓
                 </Link>
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="category-select" spy={true} smooth={true} duration={100} >
-                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                    ↑ <span className="text-bold text-red-500">■</span> Scroll to search bar <span className="text-bold text-red-500">■</span> ↑
                 </Link>
             </div>
         </div>
@@ -987,7 +999,7 @@ class PropertySelect extends React.Component {
     render() {
         return <div className="w-full p-2 border-b-2 border-gray-600 bg-gray-200">
             <h3 className="block w-full text-lg mx-2 font-bold" id="property-select">
-                <span class="text-bold text-green-500">⛶</span> Property filter
+                <span className="text-bold text-green-500">⛶</span> Property filter
             </h3>
             <div className="flex flex-wrap items-stretch">
                 { this.props.properties.length === 0
@@ -1012,12 +1024,12 @@ class PropertySelect extends React.Component {
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="results" spy={true} smooth={true} duration={100} >
-                    ↓ <span class="text-bold text-blue-500">■</span> Scroll to results <span class="text-bold text-blue-500">■</span> ↓
+                    ↓ <span className="text-bold text-blue-500">■</span> Scroll to results <span className="text-bold text-blue-500">■</span> ↓
                 </Link>
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:ml-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="category-select" spy={true} smooth={true} duration={100} >
-                    ↑ <span class="text-bold text-red-500">■</span> Scroll to search bar <span class="text-bold text-red-500">■</span> ↑
+                    ↑ <span className="text-bold text-red-500">■</span> Scroll to search bar <span className="text-bold text-red-500">■</span> ↑
                 </Link>
             </div>
         </div>

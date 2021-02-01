@@ -102,7 +102,7 @@ export async function checkForComponentLibraryUpdate() {
 }
 
 // Fetch a JSON. If error occures,
-async function fetchJson(path, errorIntro) {
+export async function fetchJson(path, errorIntro) {
     let response = await fetch(path);
     if (!response.ok) {
         throw Error(errorIntro + response.statusText);

@@ -90,6 +90,7 @@ def updatechangelog(newcomponents, changelog):
         if len(logContent) == 0:
             logContent = "{}"
         log = json.loads(logContent)
+    print(log)
 
     today = datetime.date.today()
     todayStr = f'{today}'

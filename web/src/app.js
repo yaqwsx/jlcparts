@@ -1,4 +1,10 @@
 import React from 'react';
+import {
+  HashRouter as Router,
+  Switch,
+  Route,
+  NavLink
+} from "react-router-dom";
 
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { fas } from '@fortawesome/free-solid-svg-icons'
@@ -8,6 +14,7 @@ import { fab } from '@fortawesome/free-brands-svg-icons'
 import './main.css';
 import { updateComponentLibrary, checkForComponentLibraryUpdate, db } from './db'
 import { ComponentOverview } from './componentTable'
+import { History } from './history'
 
 library.add(fas, far, fab);
 
@@ -222,6 +229,25 @@ function Container(props) {
   return <div className="container mx-auto px-2">{props.children}</div>
 }
 
+function Navbar(props) {
+  return <div className="w-ful text-lg">
+    <NavLink to="/" exact={true}
+      className="inline-block p-4 bg-white"
+      activeClassName="bg-gray-200 font-bold">
+      Component search
+    </NavLink>
+    <NavLink to="/history"
+      className="inline-block p-4 bg-white"
+      activeClassName="bg-gray-200 font-bold">
+       Catalog history
+    </NavLink>
+  </div>
+}
+
+export function NoMatch() {
+  return <p>404 not found</p>;
+}
+
 class App extends React.Component {
   constructor(props) {
     super(props);
@@ -245,14 +271,25 @@ class App extends React.Component {
       </Container>
     }
     return (
+      <Router basename="/" >
         <Container>
           <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
           <Header/>
           <FirstTimeNote/>
           <NewComponentFormatWarning/>
-          <ComponentOverview/>
+          <Navbar/>
+              <Switch>
+                  <Route exact path="/">
+                    <ComponentOverview/>
+                  </Route>
+                  <Route path="/history" component={History} />
+                  <Route path="*">
+                      <NoMatch />
+                  </Route>
+              </Switch>
           <Footer/>
         </Container>
+      </Router>
     );
   }
 }

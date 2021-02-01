@@ -67,8 +67,11 @@ class PartLibrary:
             return
         components = [self.getComponent(x) for x in self.index.keys()]
         components.sort(key=lambda x: x["extraTimestamp"] if "extraTimestamp" in x else 0)
+        deleted = []
         for i in range(count):
+            deleted.append(components[i]["lcsc"])
             self.delete(components[i]["lcsc"])
+        return set(deleted)
 
     def save(self, filename):
         with open(filename, "w") as f:

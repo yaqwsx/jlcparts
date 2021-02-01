@@ -2,7 +2,9 @@ import click
 import shutil
 import os
 import time
+import datetime
 import sys
+import json
 from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies
 from jlcparts.datatables import buildtables
 
@@ -13,7 +15,9 @@ from jlcparts.datatables import buildtables
     help="Previously generated JSON file serving as a cache for LCSC informatioon")
 @click.option("--age", type=int, default=0,
     help="Automatically discard n oldest components and fetch them again")
-def getLibrary(cache, source, output, age):
+@click.option("--newLogFile", type=click.Path(dir_okay=False), default=None,
+    help="Save a file with newly added components (one LCSC code per line")
+def getLibrary(cache, source, output, age, newlogfile):
     """
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
     provided by JLC PCB).
@@ -22,7 +26,7 @@ def getLibrary(cache, source, output, age):
     fetch LCSC extra data.
     """
     cacheLib = PartLibrary(cache)
-    cacheLib.deleteNOldest(age)
+    deletedComponents = cacheLib.deleteNOldest(age)
     lib = PartLibrary()
 
     with open(source, newline="") as f:
@@ -33,6 +37,7 @@ def getLibrary(cache, source, output, age):
         shutil.copy(output, output + ".bak")
 
     token, cookies = obtainCsrfTokenAndCookies()
+    newComponents = []
     total = len(jlcTable)
     fetched = 0
     lastSavedWhen = 0
@@ -46,12 +51,15 @@ def getLibrary(cache, source, output, age):
     for i, component in enumerate(jlcTable.values()):
         if i % 1000 == 0:
             print(f"Processing - {((i+1) / total * 100):.2f} %")
-        cached = cacheLib.getComponent(component["lcsc"])
+        lcsc = component['lcsc']
+        cached = cacheLib.getComponent(lcsc)
         newlyFetched = False
         if not cached:
+            if lcsc not in deletedComponents:
+                newComponents.append(lcsc)
             newlyFetched = True
-            print(f"  {component['lcsc']} not in cache, fetching...")
-            extra, token, cookies = getLcscExtra(component["lcsc"], token, cookies,
+            print(f"  {lcsc} not in cache, fetching...")
+            extra, token, cookies = getLcscExtra(lcsc, token, cookies,
                 onPause=saveOnPause)
             fetched += 1
             if extra is None:
@@ -66,6 +74,33 @@ def getLibrary(cache, source, output, age):
         if newlyFetched and fetched % 200 == 0:
             saveOnPause()
     lib.save(output)
+    if newlogfile:
+        with open(newlogfile, "w") as f:
+            for c in newComponents:
+                f.write(c + "\n")
+
+@click.command()
+@click.argument("newComponents", type=click.Path(exists=True, dir_okay=False))
+@click.argument("changelog", type=click.Path(exists=True, dir_okay=False))
+def updatechangelog(newcomponents, changelog):
+    comps = [x.strip() for x in open(newcomponents).readlines()]
+
+    with open(changelog) as f:
+        logContent = f.read()
+        if len(logContent) == 0:
+            logContent = "{}"
+        log = json.loads(logContent)
+
+    today = datetime.date.today()
+    todayStr = f'{today}'
+    if todayStr not in changelog:
+        log[todayStr] = comps
+    else:
+        log[todayStr] = list(set(comps) + set(log[todayStr]))
+
+    with open(changelog, "w") as f:
+        f.write(json.dumps(log))
+
 
 @click.command()
 @click.argument("libraryFilename")
@@ -111,6 +146,7 @@ cli.add_command(getLibrary)
 cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
+cli.add_command(updatechangelog)
 
 if __name__ == "__main__":
     cli()

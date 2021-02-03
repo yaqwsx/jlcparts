@@ -48,7 +48,7 @@ class HistoryItem extends React.Component {
         let unitPrice = Math.round((price + Number.EPSILON) * 1000) / 1000;
         let category = findCategoryById(this.props.categories, x.category);
         return <tr>
-            <td className="text-center">
+            <td className="text-left pl-2">
                 <a href={x.url}
                     className="underline text-blue-600"
                     onClick={e => e.stopPropagation()}
@@ -57,7 +57,7 @@ class HistoryItem extends React.Component {
                         {x.lcsc}
                 </a>
             </td>
-            <td className="text-center">
+            <td className="text-left">
                 <a
                     href={x.datasheet}
                     onClick={e => e.stopPropagation()}
@@ -81,15 +81,18 @@ class HistoryItem extends React.Component {
             <td className="text-left">
                 {`${unitPrice}$/unit`}
             </td>
+            <td className="text-right pr-2">
+                {x.stock}
+            </td>
         </tr>
     }
 
     renderUnknown() {
         return <tr className="text-center">
-            <td className="text-center">
+            <td className="text-left pl-2">
                 {this.props.lcsc}
             </td>
-            <td className="" colSpan={6}>
+            <td className="" colSpan={7}>
                 Component is missing in database. Do you use the latest database?
             </td>
         </tr>
@@ -101,10 +104,10 @@ class HistoryItem extends React.Component {
         if ("info" in this.state)
             return this.renderUnknown();
         return <tr className="text-center">
-            <td className="text-center">
+            <td className="text-left pl-2">
                 {this.props.lcsc}
             </td>
-            <td className="" colSpan={6}>
+            <td className="" colSpan={7}>
                 <InlineSpinbox/>
             </td>
         </tr>
@@ -112,10 +115,11 @@ class HistoryItem extends React.Component {
 }
 
 function DayTable(props) {
-    return <table className="w-full bg-white p-2 my-2">
+    return <table className="w-full bg-white p-2 mb-4">
         <thead className="bg-white">
             <tr>{
-                ["LCSC", "MFR", "Basic/Extended", "Image", "Description", "Category", "Price"].map( label => {
+                ["LCSC", "MFR", "Basic/Extended", "Image", "Description",
+                 "Category", "Price", "Stock"].map( label => {
                     return <th key={label} className="bg-blue-500 mx-1 p-2 border-r-2 rounded">
                         {label}
                     </th>
@@ -151,7 +155,7 @@ class HistoryTable extends React.Component {
                         "components": response[day]
                     });
                 }
-                log.sort((a, b) => b - a);
+                log.sort((a, b) => b["day"] - a["day"]);
                 this.setState({"table": log})
             });
         db.categories.toArray().then( categories => {
@@ -168,7 +172,7 @@ class HistoryTable extends React.Component {
                 return <></>
             let day = item.day
             return <div key={item.day}>
-                <h2 className="w-full text-lg">
+                <h2 className="w-full text-lg font-bold mt-6">
                     Newly added components on {day.getDate()}. {day.getMonth() + 1}. {day.getFullYear()}:
                 </h2>
                 <DayTable

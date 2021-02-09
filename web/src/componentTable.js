@@ -424,7 +424,7 @@ export class ComponentOverview extends React.Component {
                         if (flag === "Discontinued") {
                             discontinued = <FontAwesomeIcon icon="exclamation-triangle"
                                 color="red" className="mx-2"
-                                title="Warning, this component have been discontinued"/>;
+                                title="Warning, this component has been discontinued"/>;
                         }
                     }
                     return <>

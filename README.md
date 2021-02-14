@@ -58,6 +58,33 @@ perform queries on it. Therefore, before the first use, you have to download the
 component library and it can take a while. Then, all the queries are performed
 locally.
 
+## Development
+
+To get started with developing the frontend, you will need NodeJS & Python 3.
+
+Set up the Python portion of the program by running:
+
+```
+$ virtualenv venv
+$ source venv/bin/activate
+$ pip install -e .
+```
+
+Then to download the cached parts list and process it, run:
+
+```
+$ wget https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
+$ mkdir -p web/public/data/
+$ jlcparts buildtables jlcdata.json web/public/data
+```
+
+To launch the frontend web server, run:
+
+```
+$ cd web
+$ npm start
+```
+
 ## The Page Is Broken!
 
 Feel free to open an issue on GitHub.

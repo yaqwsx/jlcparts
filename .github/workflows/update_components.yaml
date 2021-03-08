@@ -1,0 +1,78 @@
+name: "Update component database"
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+jobs:
+  build_and_update:
+    name: "Update component database and frontend"
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3 python3-pip nodejs npm wget zip unzip libreoffice
+          sudo pip3 install requests click xlsx2csv
+      - name: Build frontend
+        run: |
+          cd web
+          if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]; then
+            export BASEURL=https://jlcparts-dev.honzamrazek.cz
+          else
+            export BASEURL=https://yaqwsx.github.io/jlcparts
+          fi
+          npm install --silent
+          NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
+          if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
+            echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
+          fi
+      - name: Update database
+        run: |
+          sudo pip3 install -e .
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
+          wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
+
+          # It is hard to read the original xls file, hence we convert it into xlsx
+          libreoffice --headless --convert-to xlsx parts.xls
+          # There are multiple lists, so join them
+          xlsx2csv -a parts.xlsx parts
+          sheets=(parts/*)
+          head -n 1 "${sheets[1]}" > parts.csv
+          for f in parts/*; do
+            tail -n +2 "$f" >> parts.csv
+          done
+
+          jlcparts getlibrary --cache cache.json --age 500 --newLogFile newComponents.txt parts.csv jlcdata.json
+          cp jlcdata.json cache.json
+          jlcparts buildtables jlcdata.json web/build/data
+          zip web/build/data/cache.zip cache.json
+          wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
+          jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: web
+          path: web/build/
+          retention-days: 14
+  deploy:
+    name: "Deploy"
+    runs-on: ubuntu-20.04
+    needs: build_and_update
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout # Required for GH-pages deployment
+        uses: actions/checkout@v2
+      - name: "Download web"
+        uses: actions/download-artifact@v2
+        with:
+          name: web
+          path: web_build
+      - name: Deploy to GH Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.0
+        with:
+          branch: gh-pages
+          folder: web_build

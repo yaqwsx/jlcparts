@@ -37,6 +37,13 @@ def getLibrary(cache, source, output, age, newlogfile):
     if os.path.exists(output):
         shutil.copy(output, output + ".bak")
 
+    missing = set()
+    for component in jlcTable.values():
+        lcsc = component['lcsc']
+        if cacheLib.getComponent(lcsc) is None:
+            missing.add(lcsc)
+    print(f"Missing {len(missing)} components out of {len(jlcTable.values())}")
+
     token, cookies = obtainCsrfTokenAndCookies()
     newComponents = []
     total = len(jlcTable)
@@ -49,34 +56,41 @@ def getLibrary(cache, source, output, age, newlogfile):
             print(f"Automatically saving")
             lib.save(output)
             lastSavedWhen = fetched
+    # First, handle existing components, so we save it into the cache
+    for component in jlcTable.values():
+        lcsc = component['lcsc']
+        cached = cacheLib.getComponent(lcsc)
+        if cached:
+            component["extra"] = cached["extra"]
+            component["extraTimestamp"] = cached["extraTimestamp"] if "extraTimestamp" in cached else 0
+            lib.addComponent(component)
+    lib.save(output)
+    # Then, handle only components that are not cached and needs to be fetched
     for i, component in enumerate(jlcTable.values()):
-        if i % 1000 == 0:
-            print(f"Processing - {((i+1) / total * 100):.2f} %")
         lcsc = component['lcsc']
         cached = cacheLib.getComponent(lcsc)
         newlyFetched = False
-        if not cached:
-            if lcsc not in deletedComponents:
-                newComponents.append(lcsc)
-            newlyFetched = True
-            print(f"  {lcsc} not in cache, fetching...")
-            while True:
-                try:
-                    extra, token, cookies = getLcscExtra(lcsc, token, cookies,
-                        onPause=saveOnPause)
-                    break
-                except ConnectionError as e:
-                    print(f"Connection failed; retrying: {e}")
-                    time.sleep(5)
-            fetched += 1
-            if extra is None:
-                sys.exit("Invalid extra data fetched, aborting")
-            fetchedAt = int(time.time())
-        else:
-            extra = cached["extra"]
-            fetchedAt = cached["extraTimestamp"] if "extraTimestamp" in cached else 0
+        if cached is not None:
+            continue
+        if lcsc not in deletedComponents:
+            newComponents.append(lcsc)
+        newlyFetched = True
+        print(f"  {lcsc} not in cache, fetching...")
+        while True:
+            try:
+                extra, token, cookies = getLcscExtra(lcsc, token, cookies,
+                    onPause=saveOnPause)
+                break
+            except ConnectionError as e:
+                print(f"Connection failed; retrying: {e}")
+                time.sleep(5)
+        fetched += 1
+        if fetched % 10 == 0:
+            print(f"Pulling - {((fetched+1) / len(missing) * 100):.2f} %")
+        if extra is None:
+            sys.exit("Invalid extra data fetched, aborting")
         component["extra"] = extra
-        component["extraTimestamp"] = fetchedAt
+        component["extraTimestamp"] = int(time.time())
         lib.addComponent(component)
         if newlyFetched and fetched % 200 == 0:
             saveOnPause()

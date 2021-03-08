@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import requests
+from requests.exceptions import ConnectionError
 import json
 import sys
 import click
@@ -136,7 +137,7 @@ def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
                             "search_content": lcscNumber
                         })
     try:
-        if "exceeded the maximum number of attempts" in res.text or res.json()["code"] == 429:
+        if "exceeded the maximum number of attempts" in res.text or "try again" in res.text or res.json()["code"] == 429:
             if onPause:
                 onPause()
             print("Too many requests! Waiting")
@@ -158,8 +159,8 @@ def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
         print(f"  Response: {res.text}")
         if onPause:
             onPause()
-        if "Bad Gateway" in res.text:
-            print("Bad gateway, try again in a second")
+        if "Bad Gateway" in res.text or isinstance(e, ConnectionError):
+            print("Faulty connection")
             time.sleep(5)
             return getLcscExtra(lcscNumber, token=None, cookies=None, onPause=onPause)
     return None, token, cookies

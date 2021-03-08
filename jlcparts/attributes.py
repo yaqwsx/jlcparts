@@ -53,7 +53,7 @@ def readResistance(value):
     """
     Given a string, try to parse resistance and return it as Ohms (float)
     """
-    value = erase(value, ["Ω", "Ohms", "Ohm"]).strip()
+    value = erase(value, ["Ω", "Ohms", "Ohm", "(Max)", "Max"]).strip()
     unitPrefixes = {
         "m": [1e-3, 1e-6],
         "K": [1e3, 1],
@@ -65,7 +65,7 @@ def readResistance(value):
             split = [float(x) if x != "" else 0 for x in value.split(prefix)]
             value = split[0] * table[0] + split[1] * table[1]
             break
-    if value == "-":
+    if value == "-" or value == "":
         value = "NaN"
     else:
         value = float(value)
@@ -73,10 +73,11 @@ def readResistance(value):
 
 def readCurrent(value):
     """
-    Given a string, try to parse resistance and return it as Ohms (float)
+    Given a string, try to parse current and return it as Amperes (float)
     """
     value = erase(value, ["PNP"])
     value = value.replace("A", "").strip()
+    value = value.split("..")[-1] # Some transistors give a range for current in Rds
     return readWithSiPrefix(value)
 
 def readVoltage(value):
@@ -139,6 +140,9 @@ def voltageAttribute(value):
     value = value.split("~")[-1]
     value = value.split("or")[-1]
     value = value.replace("VIN", "V").replace("Vin", "V")
+    value = value.replace("VDC", "V").replace("VAC", "V")
+    value = value.replace("Vdc", "V").replace("Vac", "V")
+    value = value.replace("X1:", "")
     value = erase(value, "±")
 
     if value.strip() in ["-", "Tracking", "nV"]:
@@ -154,6 +158,14 @@ def voltageAttribute(value):
     }
 
 def currentAttribute(value):
+    if value.lower().strip() == "adjustable":
+        return {
+            "format": "${current}",
+            "default": "count",
+            "values": {
+                "current": ["NaN", "current"]
+            }
+        }
     value = erase(value, ["±", "Up to"])
     value = re.sub(r"\(.*?\)", "", value)
     # Remove multiple current values
@@ -332,6 +344,8 @@ def powerDissipation(value):
     Parse single or double power dissipation into structured value
     """
     value = re.sub(r"\(.*?\)", "", value) # Remove all notes about temperature
+    value = value.split("/")[-1] # When there are multiple thermal ratings for
+        # transistors, choose the last as it is the most interesting one
     if "," in value:
         s = value.split(",")
         p1 = readPower(s[0])
@@ -439,7 +453,7 @@ def rippleCurrent(value):
         }
     s = value.split("@")
     i = readCurrent(s[0])
-    f = readFrequency(s[1])
+    f = readFrequency(s[1].split("~")[-1])
     return {
         "format": "${current} @ ${frequency}",
         "default": "current",
@@ -459,6 +473,7 @@ def sizeMm(value):
                 "height": ["NaN", "length"]
             }
         }
+    value = value.lower()
     s = value.split("x")
     w = float(s[0]) / 1000
     h = float(s[1]) / 1000

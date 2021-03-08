@@ -5,6 +5,7 @@ import time
 import datetime
 import sys
 import json
+from requests.exceptions import ConnectionError
 from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies
 from jlcparts.datatables import buildtables
 
@@ -59,8 +60,14 @@ def getLibrary(cache, source, output, age, newlogfile):
                 newComponents.append(lcsc)
             newlyFetched = True
             print(f"  {lcsc} not in cache, fetching...")
-            extra, token, cookies = getLcscExtra(lcsc, token, cookies,
-                onPause=saveOnPause)
+            while True:
+                try:
+                    extra, token, cookies = getLcscExtra(lcsc, token, cookies,
+                        onPause=saveOnPause)
+                    break
+                except ConnectionError as e:
+                    print(f"Connection failed; retrying: {e}")
+                    time.sleep(5)
             fetched += 1
             if extra is None:
                 sys.exit("Invalid extra data fetched, aborting")

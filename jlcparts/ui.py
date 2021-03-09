@@ -37,6 +37,13 @@ def getLibrary(cache, source, output, age, newlogfile):
     if os.path.exists(output):
         shutil.copy(output, output + ".bak")
 
+    missing = set()
+    for component in jlcTable.values():
+        lcsc = component['lcsc']
+        if cacheLib.getComponent(lcsc) is None:
+            missing.add(lcsc)
+    print(f"Missing {len(missing)} components out of {len(jlcTable.values())}")
+
     token, cookies = obtainCsrfTokenAndCookies()
     newComponents = []
     total = len(jlcTable)
@@ -50,8 +57,6 @@ def getLibrary(cache, source, output, age, newlogfile):
             lib.save(output)
             lastSavedWhen = fetched
     for i, component in enumerate(jlcTable.values()):
-        if i % 1000 == 0:
-            print(f"Processing - {((i+1) / total * 100):.2f} %")
         lcsc = component['lcsc']
         cached = cacheLib.getComponent(lcsc)
         newlyFetched = False
@@ -69,6 +74,8 @@ def getLibrary(cache, source, output, age, newlogfile):
                     print(f"Connection failed; retrying: {e}")
                     time.sleep(5)
             fetched += 1
+            if fetched % 10 == 0:
+                print(f"Pulling - {((fetched+1) / len(missing) * 100):.2f} %")
             if extra is None:
                 sys.exit("Invalid extra data fetched, aborting")
             fetchedAt = int(time.time())

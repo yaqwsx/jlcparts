@@ -57,18 +57,20 @@ jobs:
         with:
           name: web
           path: web/build/
+          retention-days: 14
   deploy:
     name: "Deploy"
     runs-on: ubuntu-20.04
     needs: update_component_database
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      # - name: Checkout
+      #   uses: actions/checkout@v2
       - name: "Download web"
         uses: actions/download-artifact@v2
         with:
           name: web
-      - run: ls; ls web/build
+          path: web
+      - run: ls -lah; ls -lah web
       - name: Deploy to GH Pages
         if: github.ref == 'refs/heads/master'
         uses: JamesIves/github-pages-deploy-action@4.1.0

@@ -41,9 +41,9 @@ jobs:
           # There are multiple lists, so join them
           xlsx2csv -a parts.xlsx parts
           sheets=(parts/*)
-          head -n 1 ${sheets[1]} > parts.csv
+          head -n 1 "${sheets[1]}" > parts.csv
           for f in parts/*; do
-            tail -n +2 $f >> parts.csv
+            tail -n +2 "$f" >> parts.csv
           done
 
           jlcparts getlibrary --cache cache.json --age 20 --newLogFile newComponents.txt parts.csv jlcdata.json

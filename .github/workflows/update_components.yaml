@@ -2,10 +2,11 @@ name: "Update component database"
 on:
   push:
   pull_request:
-  # schedule:
-  #   - cron: '0 3 * * *'
+  schedule:
+    - cron: '0 3 * * *'
 jobs:
   update_component_database:
+    name: "Update component database"
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
@@ -16,133 +17,62 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             python3 python3-pip nodejs npm wget zip unzip libreoffice
           sudo pip3 install requests click
-      - name: Build
+      - name: Build frontend
         run: |
-            set -e
-            pwd
-            ROOT=$(pwd)
+          cd web
+          if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]; then
+            export BASEURL=https://jlcparts-dev.honzamrazek.cz
+          else
+            export BASEURL=https://yaqwsx.github.io/jlcparts
+          fi
+          npm install --silent
+          NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
+          if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
+            echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
+          fi
+      - name: Update database
+        run: |
+          sudo pip3 install -e .
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
+          wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
 
-            echo "$GITHUB_REPOSITORY"
-            if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]
-            then
-              export BASEURL=https://jlcparts-dev.honzamrazek.cz
-            else
-              export BASEURL=https://yaqwsx.github.io/jlcparts
-            fi
+          # It is hard to read the original xls file, hence we convert it into xlsx
+          libreoffice --headless --convert-to xlsx parts.xls
+          # There are multiple lists, so join them
+          xlsx2csv -a parts.xlsx parts
+          sheets=(parts/*)
+          head -n 1 ${sheets[1]} > parts.csv
+          for f in parts/*; do
+            tail -n +2 $f >> parts.csv
+          done
 
-            echo ::group::Install dependencies
-              set -v
-              cd ${ROOT} && sudo pip3 install -e .
-              cd ${ROOT}/web && npm install --silent
-              set +v
-            echo "::endgroup::"
-
-            echo ::group::Build frontned for ${BASEURL}
-              set -v
-              cd ${ROOT}/web
-              ls
-              NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
-              ls ${ROOT}/web/build
-              set +v
-            echo "::endgroup::"
-
-            echo ::group::Pull tables and caches
-              set -v
-              cd ${ROOT}/
-              wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
-              wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
-              libreoffice --headless --convert-to csv --infilter=CSV:44,34,76,1 parts.xls
-              set +v
-            echo "::endgroup::"
-
-            echo ::group::Pull LCSC extra information
-              set -v
-              cd ${ROOT}/
-              jlcparts getlibrary --cache cache.json --age 500 --newLogFile newComponents.txt parts.csv jlcdata.json
-              cp jlcdata.json cache.json
-              set +v
-            echo "::endgroup::"
-
-            echo ::group::Build data tables
-              set -v
-              cd ${ROOT}/
-              jlcparts buildtables jlcdata.json web/build/data
-              zip web/build/data/cache.zip cache.json
-              wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
-              jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
-              set +v
-            echo "::endgroup::"
-
-            if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]
-            then
-              echo 'jlcparts-dev.honzamrazek.cz' > web/build/CNAME
-            fi
-
-      # - name: Build
-      #   uses: addnab/docker-run-action@v2
-      #   with:
-      #     image: yaqwsx/jlcparts:latest
-      #     options: -v ${{ github.workspace }}:/work -w /work
-      #     shell: bash
-      #     run: |
-      #       set -e
-      #       export TERM=xterm-256color
-
-      #       echo "$GITHUB_REPOSITORY"
-      #       if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]
-      #       then
-      #         export BASEURL=https://jlcparts-dev.honzamrazek.cz
-      #       else
-      #         export BASEURL=https://yaqwsx.github.io/jlcparts
-      #       fi
-
-      #       echo ::group::Install dependencies
-      #         set -v
-      #         cd /work && pip3 install -e .
-      #         cd ${ROOT}/web && npm install --silent
-      #         set +v
-      #       echo "::endgroup::"
-
-      #       echo ::group::Build frontned for ${BASEURL}
-      #         set -v
-      #         cd ${ROOT}/web
-      #         ls
-      #         NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
-      #         ls ${ROOT}/web/build
-      #         set +v
-      #       echo "::endgroup::"
-
-      #       echo ::group::Pull tables and caches
-      #         set -v
-      #         cd /work
-      #         wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
-      #         wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
-      #         libreoffice --headless --convert-to csv --infilter=CSV:44,34,76,1 parts.xls
-      #         set +v
-      #       echo "::endgroup::"
-
-      #       echo ::group::Pull LCSC extra information
-      #         set -v
-      #         cd /work
-      #         jlcparts getlibrary --cache cache.json --age 500 --newLogFile newComponents.txt parts.csv jlcdata.json
-      #         cp jlcdata.json cache.json
-      #         set +v
-      #       echo "::endgroup::"
-
-      #       echo ::group::Build data tables
-      #         set -v
-      #         cd /work
-      #         jlcparts buildtables jlcdata.json web/build/data
-      #         zip web/build/data/cache.zip cache.json
-      #         wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
-      #         jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
-      #         set +v
-      #       echo "::endgroup::"
-
-      #       if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]
-      #       then
-      #         echo 'jlcparts-dev.honzamrazek.cz' > web/build/CNAME
-      #       fi
-
-
-
+          jlcparts getlibrary --cache cache.json --age 20 --newLogFile newComponents.txt parts.csv jlcdata.json
+          cp jlcdata.json cache.json
+          jlcparts buildtables jlcdata.json web/build/data
+          zip web/build/data/cache.zip cache.json
+          wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
+          jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: web
+          path: web/build/
+  deploy:
+    name: "Deploy"
+    runs-on: ubuntu-20.04
+    needs: update_component_database
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: "Download web"
+        uses: actions/download-artifact@v2
+        with:
+          name: web
+      - run: ls; ls web/build
+      - name: Deploy to GH Pages
+        if: github.ref == 'refs/heads/master'
+        uses: JamesIves/github-pages-deploy-action@4.1.0
+        with:
+          branch: gh-pages
+          folder: web/build
+          dry-run: True

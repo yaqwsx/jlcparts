@@ -65,7 +65,7 @@ def readResistance(value):
             split = [float(x) if x != "" else 0 for x in value.split(prefix)]
             value = split[0] * table[0] + split[1] * table[1]
             break
-    if value == "-":
+    if value == "-" or value == "":
         value = "NaN"
     else:
         value = float(value)
@@ -142,6 +142,7 @@ def voltageAttribute(value):
     value = value.replace("VIN", "V").replace("Vin", "V")
     value = value.replace("VDC", "V").replace("VAC", "V")
     value = value.replace("Vdc", "V").replace("Vac", "V")
+    value = value.replace("X1:", "")
     value = erase(value, "±")
 
     if value.strip() in ["-", "Tracking", "nV"]:
@@ -452,7 +453,7 @@ def rippleCurrent(value):
         }
     s = value.split("@")
     i = readCurrent(s[0])
-    f = readFrequency(s[1])
+    f = readFrequency(s[1].split("~")[-1])
     return {
         "format": "${current} @ ${frequency}",
         "default": "current",

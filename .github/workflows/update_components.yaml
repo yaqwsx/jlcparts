@@ -76,3 +76,4 @@ jobs:
         with:
           branch: gh-pages
           folder: web_build
+          single-commit: true

@@ -208,6 +208,7 @@ def countAttribute(value):
                 "count": ["NaN", "count"]
             }
         }
+    value = erase(value, [" - Dual"])
     value = re.sub(r"\(.*?\)", "", value)
     count = int(value)
     return {

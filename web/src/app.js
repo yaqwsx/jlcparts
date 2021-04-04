@@ -16,6 +16,11 @@ import { updateComponentLibrary, checkForComponentLibraryUpdate, db } from './db
 import { ComponentOverview } from './componentTable'
 import { History } from './history'
 
+import { detect } from 'detect-browser';
+
+const browser = detect();
+
+
 library.add(fas, far, fab);
 
 function Header(props) {
@@ -27,7 +32,7 @@ function Header(props) {
           JLC PCB SMD Assembly Component Catalogue
         </h1>
         <p>
-          Parametric search for components offered by <a href="https://jlcpcb.com">JLC PCB</a> SMD assembly service.
+          Parametric search for components offered by <a href="https://jlcpcb.com" className="underline text-blue-600">JLC PCB</a> SMD assembly service.
         </p>
         <p>
           Read more at project's <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/yaqwsx/jlcparts">GitHub page</a>.
@@ -67,6 +72,25 @@ function Footer(props) {
   return <div className="w-full p-2 border-t-2 border-gray-800" style={{"minHeight": "200px"}}>
 
   </div>
+}
+
+function FFNote(props) {
+  if (browser && browser.name === "firefox")
+    return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
+      <p className="font-bold">
+        It seems that you use Firefox. Unfortunately, we experience functionality
+        problems in Firefox. Please, use other browser until we resolve this issue.
+      </p>
+      <p>
+        See the corresponding &nbsp;
+          <a href="https://github.com/yaqwsx/jlcparts/issues/33" className="underline text-blue-600">
+            Github issue
+          </a>&nbsp;
+        for more information and details.
+      </p>
+    </div>
+
+  return <></>
 }
 
 class FirstTimeNote extends React.Component {
@@ -110,7 +134,7 @@ class NewComponentFormatWarning extends React.Component {
 
   componentDidMount() {
     db.components.limit(1).first().then(x => {
-      if (typeof x.attributes[Object.keys(x.attributes)[0]] !== 'object')
+      if (x !== undefined && typeof x.attributes[Object.keys(x.attributes)[0]] !== 'object')
         this.setState({newComponentFormat: false});
     });
   }
@@ -276,6 +300,7 @@ class App extends React.Component {
           <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
           <Header/>
           <FirstTimeNote/>
+          <FFNote/>
           <NewComponentFormatWarning/>
           <Navbar/>
               <Switch>

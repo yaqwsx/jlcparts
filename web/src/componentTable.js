@@ -714,7 +714,17 @@ class CategoryFilter extends React.Component {
         // this.setState({"abort": cAbort});
         // let components = await componentsPromise.catch(_ => []);
         // this.setState({"abort": () =>{}});
-        let components = await query.toArray();
+        let components =  null;
+        try {
+            components = await query.toArray();
+        } catch( err ) {
+            // This is a temporary notification for Firefox users
+            alert("Fatal error ocurred - see below.\n\n" +
+                "If you use Firefox, please see https://github.com/yaqwsx/jlcparts/issues/33. for further information\n" +
+                "Otherwise, please report this as a bug. Error information: \n" +
+                err.toString())
+                window.location.reload()
+        }
         if (this.state.searchString.length === 0)
             return components;
 

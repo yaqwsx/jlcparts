@@ -526,6 +526,8 @@ def voltageRange(value):
     value = re.sub(r"\(.*?\)", "", value)
     if ".." in value:
         s = value.split("..")
+    elif "-" in value:
+        s = value.split("-")
     else:
         s = value.split("~")
     vMin = s[0].split(",")[0].split("/")[0]

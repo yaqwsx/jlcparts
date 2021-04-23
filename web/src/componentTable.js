@@ -760,17 +760,19 @@ class CategoryFilter extends React.Component {
         state.allCategories = true;
     }
 
+    selectNone = (state) => {
+        for (let key in state.categories) {
+            state.categories[key] = [];
+        }
+        state.allCategories = false;
+    }
+
     handleSelectAll = () => {
         this.setState(produce(this.state, this.selectAll), this.notifyParent);
     }
 
     handleSelectNone = () => {
-        this.setState(produce(this.state, draft => {
-            for (let key in draft.categories) {
-                draft.categories[key] = [];
-            }
-            draft.allCategories = false;
-        }), this.notifyParent);
+        this.setState(produce(this.state, this.selectNone), this.notifyParent);
     }
 
     handleFulltextChange = (e) => {
@@ -785,11 +787,12 @@ class CategoryFilter extends React.Component {
     }
 
     handleClear = (e) => {
-        console.log("Here!");
         this.setState(produce(this.state, draft => {
             draft.searchString = "";
+            if (draft.allCategories) {
+                this.selectNone(draft)
+            }
         }), () => {
-            console.log("Notifying parent");
             this.notifyParent();
         });
     }

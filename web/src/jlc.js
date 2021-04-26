@@ -18,7 +18,7 @@ export class AttritionInfo extends React.Component {
     }
 
     componentDidMount() {
-        fetch("https://cors-anywhere.herokuapp.com/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
+        fetch("https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
                 .then(response => {
                     if (!response.ok) {
                         console.log(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
@@ -28,6 +28,9 @@ export class AttritionInfo extends React.Component {
                 })
                 .then(responseJson => {
                     this.setState({data: responseJson.data});
+                })
+                .catch(error => {
+                    this.setState({error: true});
                 });
     }
 
@@ -39,6 +42,20 @@ export class AttritionInfo extends React.Component {
 
     render() {
         let data = this.state.data;
+        if (this.state.error) {
+            return <div className="bg-yellow-400 p-2 mt-2">
+                Cannot fetch attrition data from JLC website. This is a&nbsp;
+                <a href="https://github.com/yaqwsx/jlcparts/issues/36"
+                   className="underline text-blue-500 hover:text-blue-800">
+                       known problem
+                </a>. As a workaround, you can install&nbsp;
+                <a href="https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf?hl=en"
+                   className="underline text-blue-500 hover:text-blue-800">
+                       Allow-CORS-Access-Control browser extension
+                </a>.
+                After installing, enabling and reloading, the attrition information will be available again.
+            </div>
+        }
         if (data)
             return <table className="w-full">
                 { data.lossNumber

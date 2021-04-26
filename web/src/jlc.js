@@ -18,11 +18,14 @@ export class AttritionInfo extends React.Component {
     }
 
     componentDidMount() {
-        fetch("https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
+        fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
                 .then(response => {
                     if (!response.ok) {
                         console.log(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
                         return;
+                    }
+                    if (response.status !== 200) {
+                        this.setState({error: true});
                     }
                     return response.json();
                 })

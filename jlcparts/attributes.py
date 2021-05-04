@@ -54,6 +54,7 @@ def readResistance(value):
     Given a string, try to parse resistance and return it as Ohms (float)
     """
     value = erase(value, ["Ω", "Ohms", "Ohm", "(Max)", "Max"]).strip()
+    value = value.replace(" ", "") # Sometimes there are spaces after decimal place
     unitPrefixes = {
         "m": [1e-3, 1e-6],
         "K": [1e3, 1],
@@ -249,7 +250,10 @@ def rdsOnMaxAtIdsAtVgs(value):
     def readRds(v):
         if value == "-":
             return "NaN", "NaN", "NaN"
+        v = v.replace("，", ",") # Replace special unicode characters
         matched = re.match(r"(.*)@(.*),(.*)", v)
+        if matched is None:
+            matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
         # There are some transistors with a typo; using "A" instead of "V", fix it:
         voltage = matched.group(3).replace("A", "V")
         return (readResistance(matched.group(1)),
@@ -345,6 +349,16 @@ def powerDissipation(value):
     Parse single or double power dissipation into structured value
     """
     value = re.sub(r"\(.*?\)", "", value) # Remove all notes about temperature
+    value = value.replace("V", "W") # Common typo
+    if "A" in value:
+        # The value is a clear nonsense
+        return {
+            "format": "${power}",
+            "default": "power",
+            "values": {
+                "power": ["NaN", "power"]
+            }
+        }
     value = value.split("/")[-1] # When there are multiple thermal ratings for
         # transistors, choose the last as it is the most interesting one
     if "," in value:
@@ -513,6 +527,12 @@ def forwardVoltage(value):
         }
     }
 
+def removeColor(string):
+    """
+    If there is a color name in the string, remove it
+    """
+    return erase(string, ["Red", "Green", "Blue"])
+
 def voltageRange(value):
     if value == "-":
         return {
@@ -524,12 +544,15 @@ def voltageRange(value):
             }
         }
     value = re.sub(r"\(.*?\)", "", value)
+    value = value.replace("A", "V") # Common typo
+    value = value.split(",")[0] # In the case of multivalue range
     if ".." in value:
         s = value.split("..")
     elif "-" in value:
         s = value.split("-")
     else:
         s = value.split("~")
+    s = [removeColor(x) for x in s] # Something there is the color in the attributes
     vMin = s[0].split(",")[0].split("/")[0]
     vMin = readVoltage(vMin)
     if len(s) == 2:

@@ -254,9 +254,10 @@ def rdsOnMaxAtIdsAtVgs(value):
         matched = re.match(r"(.*)@(.*),(.*)", v)
         if matched is None:
             matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
-        # There are some transistors with a typo; using "A" instead of "V", fix it:
+        # There are some transistors with a typo; using "A" instead of "V" or Ω, fix it:
+        resistance = matched.group(1).replace("A", "Ω")
         voltage = matched.group(3).replace("A", "V")
-        return (readResistance(matched.group(1)),
+        return (readResistance(resistance),
                 readCurrent(matched.group(2)),
                 readVoltage(voltage))
     if ";" in value:

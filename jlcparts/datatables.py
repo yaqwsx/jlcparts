@@ -166,34 +166,37 @@ def pullExtraAttributes(component):
     }
 
 def extractComponent(component, schema):
-    propertyList = []
-    for schItem in schema:
-        if schItem == "attributes":
-            attr = component.get("extra", {}).get("attributes", {})
-            if isinstance(attr, list):
-                # LCSC return empty attributes as a list, not dictionary
-                attr = {}
-            attr.update(pullExtraAttributes(component))
-            weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
-            attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
-            propertyList.append(attr)
-        elif schItem == "images":
-            images = component.get("extra", {}).get("images", {})
-            if len(images) > 0:
-                images = images[0]
+    try:
+        propertyList = []
+        for schItem in schema:
+            if schItem == "attributes":
+                attr = component.get("extra", {}).get("attributes", {})
+                if isinstance(attr, list):
+                    # LCSC return empty attributes as a list, not dictionary
+                    attr = {}
+                attr.update(pullExtraAttributes(component))
+                weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
+                attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
+                propertyList.append(attr)
+            elif schItem == "images":
+                images = component.get("extra", {}).get("images", {})
+                if len(images) > 0:
+                    images = images[0]
+                else:
+                    images = None
+                propertyList.append(images)
+            elif schItem == "url":
+                url = component.get("extra", {}).get("url", None)
+                if url is not None:
+                    url = "https://lcsc.com" + url
+                propertyList.append(url)
+            elif schItem in component:
+                propertyList.append(component[schItem])
             else:
-                images = None
-            propertyList.append(images)
-        elif schItem == "url":
-            url = component.get("extra", {}).get("url", None)
-            if url is not None:
-                url = "https://lcsc.com" + url
-            propertyList.append(url)
-        elif schItem in component:
-            propertyList.append(component[schItem])
-        else:
-            propertyList.append(None)
-    return propertyList
+                propertyList.append(None)
+        return propertyList
+    except Exception as e:
+        raise RuntimeError(f"Cannot extract {component['lcsc']}").with_traceback(e.__traceback__)
 
 def buildDatatable(components):
     schema = ["lcsc", "mfr", "joints", "manufacturer", "description",

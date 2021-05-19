@@ -468,6 +468,8 @@ def rippleCurrent(value):
             }
         }
     s = value.split("@")
+    if len(s) == 1:
+        s = value.split(" ")
     i = readCurrent(s[0])
     f = readFrequency(s[1].split("~")[-1])
     return {

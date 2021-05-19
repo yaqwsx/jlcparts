@@ -137,7 +137,15 @@ def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
                             "search_content": lcscNumber
                         })
     try:
-        if "exceeded the maximum number of attempts" in res.text or "try again" in res.text or res.json()["code"] == 429:
+        failed = False
+        failed = failed or "exceeded the maximum number of attempts" in res.text
+        failed = failed or "try again" in res.text
+        try:
+            failed = failed or res.json()["code"] == 429
+        except Exception as e:
+            print(f"Cannot read code from response, {e}")
+            failed = True
+        if failed:
             if onPause:
                 onPause()
             print("Too many requests! Waiting")

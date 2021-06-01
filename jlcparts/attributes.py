@@ -534,7 +534,7 @@ def removeColor(string):
     """
     If there is a color name in the string, remove it
     """
-    return erase(string, ["Red", "Green", "Blue"])
+    return erase(string, ["Red", "Green", "Blue", "Orange"])
 
 def voltageRange(value):
     if value == "-":

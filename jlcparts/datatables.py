@@ -40,6 +40,7 @@ def normalizeUnicode(value):
     Replace unexpected unicode sequence with a resonable ones
     """
     value = value.replace("（", " (").replace("）", ")")
+    value = value.replace("，", ",")
     return value
 
 def normalizeAttribute(key, value):

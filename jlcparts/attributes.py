@@ -251,7 +251,7 @@ def rdsOnMaxAtIdsAtVgs(value):
         if value == "-":
             return "NaN", "NaN", "NaN"
         v = v.replace("，", ",") # Replace special unicode characters
-        matched = re.match(r"(.*)@(.*),(.*)", v)
+        matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
         if matched is None:
             matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
         # There are some transistors with a typo; using "A" instead of "V" or Ω, fix it:
@@ -260,9 +260,13 @@ def rdsOnMaxAtIdsAtVgs(value):
         return (readResistance(resistance),
                 readCurrent(matched.group(2)),
                 readVoltage(voltage))
-    if ";" in value:
+    if value.count(",") == 3 or ";" in value:
         # Double P & N MOSFET
-        s = value.split(";")
+        if ";" in value:
+            s = value.split(";")
+        else:
+            s = value.split(",")
+            s = [s[0] + "," + s[1], s[2] + "," + s[3]]
         rds1, id1, vgs1 = readRds(s[0])
         rds2, id2, vgs2 = readRds(s[1])
         return {

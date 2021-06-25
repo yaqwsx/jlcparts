@@ -595,12 +595,13 @@ def clampingVoltage(value):
     vC = vC.replace("A", "V") # Common typo
     vC = readVoltage(vC)
     if len(s) == 2:
+        c = s[1].replace("V", "A") # Common typo
         return {
             "format": "${Vc} @ ${Ic}",
             "default": "Vc",
             "values": {
                 "Vc": [vC, "voltage"],
-                "Ic": [readCurrent(s[1]), "current"]
+                "Ic": [readCurrent(c), "current"]
             }
         }
     return {

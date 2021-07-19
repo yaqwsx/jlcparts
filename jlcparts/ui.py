@@ -5,9 +5,15 @@ import time
 import datetime
 import sys
 import json
+from multiprocessing import Pool, TimeoutError
 from requests.exceptions import ConnectionError
-from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies
+from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies, getLcscExtraNew
 from jlcparts.datatables import buildtables
+
+def fetchLcscData(component):
+    lcsc = component['lcsc']
+    extra = getLcscExtraNew(lcsc)
+    return (component, extra)
 
 @click.command()
 @click.argument("source", type=click.Path(dir_okay=False, exists=True))
@@ -44,7 +50,6 @@ def getLibrary(cache, source, output, age, newlogfile):
             missing.add(lcsc)
     print(f"Missing {len(missing)} components out of {len(jlcTable.values())}")
 
-    token, cookies = obtainCsrfTokenAndCookies()
     newComponents = []
     total = len(jlcTable)
     fetched = 0
@@ -57,6 +62,7 @@ def getLibrary(cache, source, output, age, newlogfile):
             lib.save(output)
             lastSavedWhen = fetched
     # First, handle existing components, so we save it into the cache
+    componentsToFetch = []
     for component in jlcTable.values():
         lcsc = component['lcsc']
         cached = cacheLib.getComponent(lcsc)
@@ -64,36 +70,16 @@ def getLibrary(cache, source, output, age, newlogfile):
             component["extra"] = cached["extra"]
             component["extraTimestamp"] = cached["extraTimestamp"] if "extraTimestamp" in cached else 0
             lib.addComponent(component)
-    lib.save(output)
-    # Then, handle only components that are not cached and needs to be fetched
-    for i, component in enumerate(jlcTable.values()):
-        lcsc = component['lcsc']
-        cached = cacheLib.getComponent(lcsc)
-        newlyFetched = False
-        if cached is not None:
-            continue
-        if lcsc not in deletedComponents:
-            newComponents.append(lcsc)
-        newlyFetched = True
-        print(f"  {lcsc} not in cache, fetching...")
-        while True:
-            try:
-                extra, token, cookies = getLcscExtra(lcsc, token, cookies,
-                    onPause=saveOnPause)
-                break
-            except ConnectionError as e:
-                print(f"Connection failed; retrying: {e}")
-                time.sleep(5)
-        fetched += 1
-        if fetched % 10 == 0:
-            print(f"Pulling - {((fetched+1) / len(missing) * 100):.2f} %")
-        if extra is None:
-            sys.exit("Invalid extra data fetched, aborting")
-        component["extra"] = extra
-        component["extraTimestamp"] = int(time.time())
-        lib.addComponent(component)
-        if newlyFetched and fetched % 200 == 0:
-            saveOnPause()
+        else:
+            componentsToFetch.append(component)
+
+    with Pool(processes=10) as pool:
+        for i, (component, extra) in enumerate(pool.imap_unordered(fetchLcscData, componentsToFetch)):
+            lcsc = component['lcsc']
+            print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")
+            component["extra"] = extra
+            component["extraTimestamp"] = int(time.time())
+            lib.addComponent(component)
     lib.save(output)
     if newlogfile:
         with open(newlogfile, "w") as f:
@@ -159,6 +145,14 @@ def listattributes(libraryfilename):
     for k in keys:
         print(k)
 
+@click.command()
+@click.argument("lcsc_code")
+def fetchDetails(lcsc_code):
+    """
+    Fetch LCSC extra information for a given LCSC code
+    """
+    print(getLcscExtraNew(lcsc_code))
+
 
 @click.group()
 def cli():
@@ -169,6 +163,7 @@ cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
 cli.add_command(updatechangelog)
+cli.add_command(fetchDetails)
 
 if __name__ == "__main__":
     cli()

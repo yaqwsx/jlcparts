@@ -83,6 +83,8 @@ def readCurrent(value):
 
 def readVoltage(value):
     value = value.replace("V", "").strip()
+    if value in ["-", "--"]:
+        return float("NaN")
     return readWithSiPrefix(value)
 
 def readPower(value):
@@ -144,6 +146,7 @@ def voltageAttribute(value):
     value = value.replace("VDC", "V").replace("VAC", "V")
     value = value.replace("Vdc", "V").replace("Vac", "V")
     value = value.replace("X1:", "")
+    value = value.replace("A", "V") # Common typo
     value = erase(value, "±")
 
     if value.strip() in ["-", "Tracking", "nV"]:
@@ -298,6 +301,7 @@ def continuousTransistorCurrent(value, symbol):
     Can parse values like '10A', '10A,12A', '1OA(Tc)'
     """
     value = re.sub(r"\(.*?\)", "", value) # Remove all notes about temperature
+    value = erase(value, ["±"])
     value = value.replace("V", "A") # There are some typos - voltage instead of current
     if "," in value:
         # Double P & N MOSFET

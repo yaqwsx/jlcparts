@@ -23,7 +23,10 @@ setuptools.setup(
     ],
     install_requires=[
         "requests",
-        "click"
+        "click",
+        "beautifulsoup4",
+        "py_mini_racer",
+        "lxml"
     ],
     setup_requires=[
 

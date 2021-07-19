@@ -171,7 +171,11 @@ def extractComponent(component, schema):
         propertyList = []
         for schItem in schema:
             if schItem == "attributes":
-                attr = component.get("extra", {}).get("attributes", {})
+                # The cache might be in the old format
+                if "attributes" in component.get("extra", {}):
+                    attr = component.get("extra", {}).get("attributes", {})
+                else:
+                    attr = component.get("extra", {})
                 if isinstance(attr, list):
                     # LCSC return empty attributes as a list, not dictionary
                     attr = {}

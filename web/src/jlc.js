@@ -1,4 +1,5 @@
 import React from "react";
+import {InlineSpinbox} from "./componentTable.js"
 
 export function getQuantityPrice(quantity, pricelist) {
     for (let pricepoint of pricelist) {
@@ -14,27 +15,57 @@ export class AttritionInfo extends React.Component {
     constructor(props) {
         super(props);
         this.props = props;
+        console.log(props);
         this.state = {}
     }
 
     componentDidMount() {
-        fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + this.props.component.lcsc)
-                .then(response => {
-                    if (!response.ok) {
-                        console.log(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
-                        return;
-                    }
-                    if (response.status !== 200) {
-                        this.setState({error: true});
-                    }
-                    return response.json();
-                })
-                .then(responseJson => {
-                    this.setState({data: responseJson.data});
-                })
-                .catch(error => {
-                    this.setState({error: true});
-                });
+        fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/selectSmtComponentList", {
+            method: 'POST',
+            headers: {
+                "Accept": 'application/json, text/plain, */*',
+                "Content-Type": 'application/json;charset=UTF-8',
+            },
+            body: JSON.stringify({
+                "currentPage": 1,
+                "pageSize": 25,
+                "keyword": this.props.component.lcsc,
+                "firstSortName": "",
+                "secondeSortName": "",
+                "searchSource": "search",
+                "componentAttributes": []
+            })
+        })
+        .then(response => {
+            if (!response.ok || response.status !== 200) {
+                throw new Error(`Cannot fetch ${this.props.component.lcsc}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(responseJson => {
+            let lcscId = null;
+            responseJson["data"]["componentPageInfo"]["list"].forEach(component => {
+                if (component["componentCode"] === this.props.component.lcsc)
+                    lcscId = component["componentId"];
+            })
+            if (lcscId === null) {
+                throw new Error(`No search results for ${this.props.component.lcsc}`);
+            }
+            return fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentLcscId=" + lcscId);
+        })
+        .then(response => {
+            if (!response.ok || response.status !== 200) {
+                throw new Error(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(responseJson => {
+            this.setState({data: responseJson.data});
+        })
+        .catch(error => {
+            this.setState({error: true});
+            console.log(error);
+        });
     }
 
     price() {
@@ -61,6 +92,7 @@ export class AttritionInfo extends React.Component {
         }
         if (data)
             return <table className="w-full">
+                <tbody>
                 { data.lossNumber
                     ? <tr>
                         <td className="w-1 whitespace-no-wrap">Attrition:</td>
@@ -79,7 +111,10 @@ export class AttritionInfo extends React.Component {
                     <td className="w-1 whitespace-no-wrap">Price for {this.props.quantity} pcs:</td>
                     <td className="px-2">{Math.round((this.price() + Number.EPSILON) * 1000) / 1000} USD</td>
                 </tr>
+                </tbody>
             </table>
-        return "";
+        return <div className="w-full p-4 text-center">
+                <InlineSpinbox/>
+            </div>;
     }
 }

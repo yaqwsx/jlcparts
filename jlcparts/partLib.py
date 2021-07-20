@@ -163,10 +163,11 @@ def getLcscExtraNew(lcscNumber, onPause=None, initialUrl=None):
         url = initialUrl
     else:
         try:
+            res = None
             res = requests.get(f"https://wwwapi.lcsc.com/v1/search/global-search?keyword={lcscNumber}")
             resJson = res.json()
         except:
-            if any([x in res.text for x in timeouts]):
+            if res is None or any([x in res.text for x in timeouts]):
                 time.sleep(60)
                 return getLcscExtraNew(lcscNumber, onPause)
             else:

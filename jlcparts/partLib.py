@@ -156,7 +156,8 @@ def getLcscExtraNew(lcscNumber, onPause=None, initialUrl=None):
         "504 Gateway Time-out",
         "504 ERROR",
         "Too Many Requests",
-        "Please try again in a few minutes"
+        "Please try again in a few minutes",
+        "403 Forbidden"
     ]
 
     if initialUrl is not None:

@@ -111,7 +111,12 @@ export async function fetchJson(path, errorIntro) {
     if (!contentType || contentType.indexOf("application/json") === -1) {
         throw Error(errorIntro + `Response is not JSON, but ${contentType}: ` + path);
     }
-    return await response.json();
+    try {
+        return await response.json();
+    }
+    catch (error) {
+        throw Error(errorIntro + `${error}: ` + path);
+    }
 }
 
 async function fetchText(path, errorIntro) {

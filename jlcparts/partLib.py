@@ -11,8 +11,6 @@ import time
 import shutil
 from pathlib import Path
 from textwrap import indent
-from bs4 import BeautifulSoup
-import py_mini_racer
 
 CACHE_PATH = "/tmp/jlcparts"
 
@@ -114,43 +112,7 @@ def extractCsrfToken(pageText):
         return None
     return m.group(1)
 
-def readLcscParamTable(lcscNumber, script):
-    ctx = py_mini_racer.MiniRacer()
-    ctx.eval("""
-        let window = {};
-        let result = () => window.__NUXT__.data[0].detail.paramVOList;
-        let partialResult = () => window.__NUXT__;
-        """)
-    try:
-        ctx.eval(script)
-        data = ctx.call("result")
-    except py_mini_racer.py_mini_racer.JSEvalException as e:
-        if "Cannot read property 'paramVOList" in f"{e}":
-            error = "No data table is provided"
-        else:
-            error = f"Cannot extract: {e}"
-        print(indent(f"Warning {lcscNumber}: {error}", 8 * " "))
-        return {}
-    except Exception as e:
-        print(indent(f"Failed {lcscNumber}: {e}", 8 * " "))
-    if data is None:
-        return {}
-    params = {}
-    for row in data:
-        params[row["paramNameEn"]] = row["paramValueEn"]
-    with open(f"{CACHE_PATH}/{lcscNumber}.json", "w") as f:
-        json.dump(params, f)
-    return params
-
-def getLcscExtraNew(lcscNumber, onPause=None, initialUrl=None):
-    cachePath = Path(CACHE_PATH)
-    cachePath.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(cachePath / f"{lcscNumber}.json") as f:
-            return json.load(f)
-    except:
-        pass
-
+def getLcscExtraNew(lcscNumber, onPause=None):
     timeouts = [
         "502 Bad Gateway",
         "504 Gateway Time-out",
@@ -160,48 +122,25 @@ def getLcscExtraNew(lcscNumber, onPause=None, initialUrl=None):
         "403 Forbidden"
     ]
 
-    if initialUrl is not None:
-        url = initialUrl
-    else:
-        try:
-            res = None
-            res = requests.get(f"https://wwwapi.lcsc.com/v1/search/global-search?keyword={lcscNumber}")
-            resJson = res.json()
-        except:
-            if res is None or any([x in res.text for x in timeouts]):
-                time.sleep(60)
-                return getLcscExtraNew(lcscNumber, onPause)
-            else:
-                print(f"Failed {lcscNumber}:\n" + indent(res.text, 8 * " "))
-            raise
-        if isinstance(resJson, list):
-            return {}
-        ids = resJson["tipProductDetailUrlVO"]
-        if ids is None:
-            # The component is not available on LCSC
-            return {}
-
-        catalogName = ids["catalogName"].replace(" ", "-")
-        man = ids["brandNameEn"].replace(" ", "-")
-        product = ids["productModel"].replace(" ", "-")
-        code = ids["productCode"]
-
-        url = f"https://lcsc.com/product-detail/{catalogName}_{man}-{product}_{code}.html"
-
     try:
-        res = requests.get(url)
-        if any([x in res.text for x in timeouts]) or len(res.text) == 0:
-            raise RuntimeError()
+        res = None
+        res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
+        resJson = res.json()
+        params = {}
+        paramList = resJson.get("paramVOList", {})
+        if paramList is None:
+            paramList = {}
+        for row in paramList:
+            params[row["paramNameEn"]] = row["paramValueEn"]
+        params["images"] = resJson["productImages"]
+        return params
     except:
-        time.sleep(60)
-        return getLcscExtraNew(lcscNumber, onPause, url)
-    soup = BeautifulSoup(res.text, "lxml")
-    scripts = ["".join(x.find_all(text=True)) for x in soup.find_all("script")]
-    filteredScripts = [x for x in scripts if "window.__NUXT__" in x]
-    if len(filteredScripts) != 1:
-        raise RuntimeError(f"Failed {lcscNumber}: No script")
-    script = filteredScripts[0]
-    return readLcscParamTable(lcscNumber, script)
+        if res is None or any([x in res.text for x in timeouts]):
+            time.sleep(60)
+            return getLcscExtraNew(lcscNumber, onPause)
+        else:
+            print(f"Failed {lcscNumber}:\n" + indent(res.text, 8 * " "))
+        raise
 
 def getLcscExtra(lcscNumber, token=None, cookies=None, onPause=None):
     if token is None or cookies is None:

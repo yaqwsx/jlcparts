@@ -51,12 +51,13 @@ def normalizeAttribute(key, value):
         {
             "format": <format string, e.g., "${Resistance} ${Power}",
             "primary": <name of primary value>,
-            "values": <dictinary of values with units, e.g, { "resistance": [10, "resistance"] }>
+            "values": <dictionary of values with units, e.g, { "resistance": [10, "resistance"] }>
         }
     The fallback is unit "string"
     """
     key = normalizeAttributeKey(key)
-    value = normalizeUnicode(value)
+    if isinstance(value, str):
+        value = normalizeUnicode(value)
     if key in ["Resistance", "Resistance in Ohms @ 25°C", "DC Resistance"]:
         value = attributes.resistanceAttribute(value)
     elif key in ["Balance Port Impedence", "Unbalance Port Impedence"]:
@@ -184,11 +185,7 @@ def extractComponent(component, schema):
                 attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
                 propertyList.append(attr)
             elif schItem == "images":
-                images = component.get("extra", {}).get("images", {})
-                if len(images) > 0:
-                    images = images[0]
-                else:
-                    images = None
+                images = component.get("extra", {}).get("images", [])
                 propertyList.append(images)
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)

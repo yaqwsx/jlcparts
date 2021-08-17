@@ -40,26 +40,6 @@ function attributeComparator(x, y, valueType = undefined) {
         getValue(y.values[valueType]));
 }
 
-function parseImageSize(imageSizeStr) {
-    let sizes = imageSizeStr.split("x");
-    return sizes.map(x => parseInt(x));
-}
-
-export function sortImagesSrcBySize(images) {
-    let imgCollection = [];
-    for (var sizeStr in images) {
-        if (sizeStr === "sort")
-            continue;
-        let imageDimension = parseImageSize(sizeStr);
-        let size = imageDimension[0] * imageDimension[1];
-        imgCollection.push([size, images[sizeStr]])
-    }
-    imgCollection.sort((a, b) => {
-        return b - a;
-    });
-    return imgCollection;
-}
-
 function fullTextComponentsFilter(component, words) {
     let text = componentText(component);
     for (let word of words) {
@@ -458,10 +438,8 @@ export class ComponentOverview extends React.Component {
                 displayGetter: x => {
                     var imgSrc = "./brokenimage.svg";
                     var zoomImgSrc = "./brokenimage.svg";
-                    if (x.images && Object.keys(x.images).length > 0) {
-                        let sources = sortImagesSrcBySize(x.images);
-                        imgSrc = sources[0][1];
-                        zoomImgSrc = sources[2][1];
+                    if (x.images && x.images.length > 0) {
+                        imgSrc = zoomImgSrc = x.images[0];
                     }
                     return <ZoomableLazyImage
                         height={90}
@@ -600,9 +578,8 @@ export function findCategoryById(categories, id) {
 function ExpandedComponent(props) {
     let comp = props.component;
     var imgSrc = "./brokenimage.svg";
-    if (comp.images && Object.keys(comp.images).length > 0) {
-        let sources = sortImagesSrcBySize(comp.images);
-        imgSrc = sources[sources.length - 1][1];
+    if (comp.images && comp.images.length > 0) {
+        imgSrc = comp.images[0];
     }
     let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">

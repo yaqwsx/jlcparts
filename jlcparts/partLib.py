@@ -126,6 +126,9 @@ def getLcscExtraNew(lcscNumber, onPause=None):
         res = None
         res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
         resJson = res.json()
+        if isinstance(resJson, list):
+            # The component was not found on LCSC
+            return {}
         params = {}
         paramList = resJson.get("paramVOList", {})
         if paramList is None:

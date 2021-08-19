@@ -182,6 +182,10 @@ def extractComponent(component, schema):
                     attr = {}
                 attr.update(pullExtraAttributes(component))
                 weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
+
+                attr.pop("url", None)
+                attr.pop("images", None)
+
                 attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
                 propertyList.append(attr)
             elif schItem == "images":

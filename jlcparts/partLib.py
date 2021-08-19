@@ -137,11 +137,10 @@ def getLcscExtraNew(lcscNumber, onPause=None):
             params[row["paramNameEn"]] = row["paramValueEn"]
         params["images"] = resJson["productImages"]
 
-        urlList = resJson["tipProductDetailUrlVO"]
-        catalogName = urlList["catalogName"].replace(" ", "-")
-        man = urlList["brandNameEn"].replace(" ", "-")
-        product = urlList["productModel"].replace(" ", "-")
-        code = urlList["productCode"]
+        catalogName = resJson["catalogName"].replace(" ", "-")
+        man = resJson["brandNameEn"].replace(" ", "-")
+        product = resJson["productModel"].replace(" ", "-")
+        code = resJson["productCode"]
         params["url"] = f"https://lcsc.com/product-detail/{catalogName}_{man}-{product}_{code}.html"
 
         return params

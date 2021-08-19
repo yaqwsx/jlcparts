@@ -189,8 +189,6 @@ def extractComponent(component, schema):
                 propertyList.append(images)
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
-                if url is not None:
-                    url = "https://lcsc.com" + url
                 propertyList.append(url)
             elif schItem in component:
                 propertyList.append(component[schItem])

@@ -46,7 +46,7 @@ jobs:
             tail -n +2 "$f" >> parts.csv
           done
 
-          jlcparts getlibrary --cache cache.json --age 10000 --newLogFile newComponents.txt parts.csv jlcdata.json
+          jlcparts getlibrary --cache cache.json --age 20000 --newLogFile newComponents.txt parts.csv jlcdata.json
           cp jlcdata.json cache.json
           jlcparts buildtables jlcdata.json web/build/data
           zip web/build/data/cache.zip cache.json

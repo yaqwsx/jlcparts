@@ -40,6 +40,7 @@ jobs:
           libreoffice --headless --convert-to xlsx parts.xls
           # There are multiple lists, so join them
           xlsx2csv -a parts.xlsx parts
+          ls -lah parts
           sheets=(parts/*)
           head -n 1 "${sheets[1]}" > parts.csv
           for f in parts/*; do

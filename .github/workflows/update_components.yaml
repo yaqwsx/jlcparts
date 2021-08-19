@@ -36,10 +36,13 @@ jobs:
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
           wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
 
+          set -x
+
           # It is hard to read the original xls file, hence we convert it into xlsx
           libreoffice --headless --convert-to xlsx parts.xls
           # There are multiple lists, so join them
           xlsx2csv -a parts.xlsx parts
+          ls -lah
           ls -lah parts
           sheets=(parts/*)
           head -n 1 "${sheets[1]}" > parts.csv

@@ -15,8 +15,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            python3 python3-pip nodejs npm wget zip unzip libreoffice
-          sudo pip3 install requests click xlsx2csv
+            python3 python3-pip nodejs npm wget zip unzip
+          sudo pip3 install requests click
       - name: Build frontend
         run: |
           cd web
@@ -34,19 +34,10 @@ jobs:
         run: |
           sudo pip3 install -e .
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
-          wget -q -O parts.xls https://jlcpcb.com/componentSearch/uploadComponentInfo
+          wget -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
+          iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
 
-          # It is hard to read the original xls file, hence we convert it into xlsx
-          libreoffice --headless --convert-to xlsx parts.xls
-          # There are multiple lists, so join them
-          xlsx2csv -a parts.xlsx parts
-          sheets=(parts/*)
-          head -n 1 "${sheets[1]}" > parts.csv
-          for f in parts/*; do
-            tail -n +2 "$f" >> parts.csv
-          done
-
-          jlcparts getlibrary --cache cache.json --age 20000 --newLogFile newComponents.txt parts.csv jlcdata.json
+          jlcparts getlibrary --cache cache.json --age 20000 --newLogFile newComponents.txt partsUtf8.csv jlcdata.json
           cp jlcdata.json cache.json
           jlcparts buildtables jlcdata.json web/build/data
           zip web/build/data/cache.zip cache.json

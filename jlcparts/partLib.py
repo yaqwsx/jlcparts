@@ -89,6 +89,8 @@ def loadPartLibrary(file):
 
 def parsePrice(priceString):
     prices = []
+    if len(priceString.strip()) == 0:
+        return []
     for price in priceString.split(","):
         if len(price) == 0:
             continue

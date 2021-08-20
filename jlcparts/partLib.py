@@ -125,9 +125,22 @@ def getLcscExtraNew(lcscNumber, onPause=None):
     ]
 
     try:
-        res = None
-        res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
-        resJson = res.json()
+        # Try to load fetched data from cache - useful when developing (saves time
+        # to fetch)
+        cachePath = Path(CACHE_PATH)
+        cachePath.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(cachePath / f"{lcscNumber}.json") as f:
+                resJson = json.load(f)
+        except:
+            # Not in cache, fetch
+            res = None
+            res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
+            resJson = res.json()
+            # Save to cache, make development more pleasant
+            with open(cachePath / f"{lcscNumber}.json", "w") as f:
+                json.dump(resJson, f)
+
         if isinstance(resJson, list):
             # The component was not found on LCSC
             return {}

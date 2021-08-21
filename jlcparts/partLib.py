@@ -114,6 +114,14 @@ def extractCsrfToken(pageText):
         return None
     return m.group(1)
 
+def normalizeUrlPart(part):
+    return (part
+        .replace("(", "")
+        .replace(")", "")
+        .replace(" ", "-")
+        .replace("/", "-")
+    )
+
 def getLcscExtraNew(lcscNumber, onPause=None):
     timeouts = [
         "502 Bad Gateway",
@@ -152,9 +160,9 @@ def getLcscExtraNew(lcscNumber, onPause=None):
             params[row["paramNameEn"]] = row["paramValueEn"]
         params["images"] = resJson["productImages"]
 
-        catalogName = resJson["catalogName"].replace(" ", "-")
-        man = resJson["brandNameEn"].replace(" ", "-")
-        product = resJson["productModel"].replace(" ", "-")
+        catalogName = normalizeUrlPart(resJson["catalogName"])
+        man = normalizeUrlPart(resJson["brandNameEn"])
+        product = normalizeUrlPart(resJson["productModel"])
         code = resJson["productCode"]
         params["url"] = f"https://lcsc.com/product-detail/{catalogName}_{man}-{product}_{code}.html"
 

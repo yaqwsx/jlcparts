@@ -193,6 +193,8 @@ def powerAttribute(value):
     value = re.sub(r"\(.*?\)", "", value)
     # Replace V/W typo
     value = value.replace("V", "W")
+    # Strip random additional characters (e.g., C108632)
+    value = value.replace("S", "")
 
     p = readPower(value)
     return {

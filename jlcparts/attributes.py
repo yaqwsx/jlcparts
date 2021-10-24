@@ -114,14 +114,26 @@ def readInductance(value):
     return readWithSiPrefix(value)
 
 def resistanceAttribute(value):
-    value = readResistance(value)
-    return {
-        "format": "${resistance}",
-        "primary": "resistance",
-        "values": {
-            "resistance": [value, "resistance"]
+    if ";" in value:
+        # This is a resistor array
+        values = value.split(value)
+        values = [readResistance(x.strip()) for x in values]
+        values = { "resistance" + str(i): [x, "resistance"] for i, x in enumerate(values)}
+        format = ", ".join(values.keys())
+        return {
+            "format": format,
+            "primary": "resistance1",
+            "values": values
         }
-    }
+    else:
+        value = readResistance(value)
+        return {
+            "format": "${resistance}",
+            "primary": "resistance",
+            "values": {
+                "resistance": [value, "resistance"]
+            }
+        }
 
 def impedanceAttribute(value):
     value = readResistance(value)

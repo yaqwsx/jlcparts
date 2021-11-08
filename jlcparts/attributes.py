@@ -118,11 +118,11 @@ def resistanceAttribute(value):
         # This is a resistor array
         values = value.split(value)
         values = [readResistance(x.strip()) for x in values]
-        values = { "resistance" + str(i): [x, "resistance"] for i, x in enumerate(values)}
+        values = { "resistance" + (str(i + 1) if i != 0 else ""): [x, "resistance"] for i, x in enumerate(values)}
         format = ", ".join(values.keys())
         return {
             "format": format,
-            "primary": "resistance1",
+            "primary": "resistance",
             "values": values
         }
     else:
@@ -182,24 +182,35 @@ def currentAttribute(value):
                 "current": ["NaN", "current"]
             }
         }
-    value = erase(value, ["±", "Up to"])
-    value = re.sub(r"\(.*?\)", "", value)
-    # Remove multiple current values
-    value = value.split("x")[-1]
-    value = value.split("/")[-1]
-    value = value.split(",")[-1]
-    value = value.split("~")[-1]
-    value = value.split("or")[-1]
-    # Replace V/A typo
-    value = value.replace("V", "A")
-    value = readCurrent(value)
-    return {
-        "format": "${current}",
-        "primary": "current",
-        "values": {
-            "current": [value, "current"]
+    if ";" in value:
+        values = value.split(value)
+        values = [readCurrent(x.strip()) for x in values]
+        values = { "current" + (str(i + 1) if i != 0 else ""): [x, "current"] for i, x in enumerate(values)}
+        format = ", ".join(values.keys())
+        return {
+            "format": format,
+            "primary": "current",
+            "values": values
         }
-    }
+    else:
+        value = erase(value, ["±", "Up to"])
+        value = re.sub(r"\(.*?\)", "", value)
+        # Remove multiple current values
+        value = value.split("x")[-1]
+        value = value.split("/")[-1]
+        value = value.split(",")[-1]
+        value = value.split("~")[-1]
+        value = value.split("or")[-1]
+        # Replace V/A typo
+        value = value.replace("V", "A")
+        value = readCurrent(value)
+        return {
+            "format": "${current}",
+            "primary": "current",
+            "values": {
+                "current": [value, "current"]
+            }
+        }
 
 def powerAttribute(value):
     value = re.sub(r"\(.*?\)", "", value)

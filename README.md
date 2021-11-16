@@ -11,7 +11,7 @@ Just visit: [https://yaqwsx.github.io/jlcparts/](https://yaqwsx.github.io/jlcpar
 
 ## Why?
 
-Probably all of us love JLC PCB STM assembly service. It is easy to use, cheap
+Probably all of us love JLC PCB SMT assembly service. It is easy to use, cheap
 and fast. However, you can use only components from [their
 catalogue](https://jlcpcb.com/parts). This is not as bad, since the library is
 quite broad. However, the library UI sucks. You can only browse the categories,

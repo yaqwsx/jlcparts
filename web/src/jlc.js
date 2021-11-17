@@ -1,5 +1,6 @@
 import React from "react";
 import {InlineSpinbox} from "./componentTable.js"
+import { CORS_KEY } from "./corsBridge.js";
 
 export function getQuantityPrice(quantity, pricelist) {
     for (let pricepoint of pricelist) {
@@ -25,6 +26,7 @@ export class AttritionInfo extends React.Component {
             headers: {
                 "Accept": 'application/json, text/plain, */*',
                 "Content-Type": 'application/json;charset=UTF-8',
+                "x-cors-grida-api-key": CORS_KEY
             },
             body: JSON.stringify({
                 "currentPage": 1,
@@ -51,7 +53,11 @@ export class AttritionInfo extends React.Component {
             if (lcscId === null) {
                 throw new Error(`No search results for ${this.props.component.lcsc}`);
             }
-            return fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentLcscId=" + lcscId);
+            return fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentLcscId=" + lcscId, {
+                headers: {
+                    "x-cors-grida-api-key": CORS_KEY
+                },
+            });
         })
         .then(response => {
             if (!response.ok || response.status !== 200) {

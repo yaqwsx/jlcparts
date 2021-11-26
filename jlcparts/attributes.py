@@ -177,7 +177,7 @@ def currentAttribute(value):
     if value.lower().strip() == "adjustable":
         return {
             "format": "${current}",
-            "default": "count",
+            "default": "current",
             "values": {
                 "current": ["NaN", "current"]
             }
@@ -239,7 +239,8 @@ def countAttribute(value):
         }
     value = erase(value, [" - Dual"])
     value = re.sub(r"\(.*?\)", "", value)
-    count = int(value)
+    # There are expressions like a+b, so let's sum them
+    count = sum(map(int, value.split("+")))
     return {
         "format": "${count}",
         "default": "count",

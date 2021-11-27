@@ -77,7 +77,8 @@ def normalizeAttribute(key, value):
                  "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
                  "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
                  "Current - Supply (Max)", "Output Current", "Output Current (Max)",
-                 "Output / Channel Current", "Current - Output"]:
+                 "Output / Channel Current", "Current - Output",
+                 "Saturation Current (Isat)"]:
         value = attributes.currentAttribute(value)
     elif key in ["Power", "Power Per Element"]:
         value = attributes.powerAttribute(value)
@@ -141,7 +142,7 @@ def normalizeAttributeKey(key):
         key = "DC Resistance"
     if key in ["Insertion Loss ( dB Max )", "Insertion Loss (Max)"]:
         key = "Insertion Loss (dB Max)"
-    if key in ["Current Rating (Max)"]:
+    if key in ["Current Rating (Max)", "Rated Current"]:
         key = "Rated current"
     if key == "Power - Max":
         key = "Power"

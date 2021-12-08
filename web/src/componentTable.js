@@ -58,6 +58,7 @@ function componentText(component) {
 }
 
 export function formatAttribute(attribute) {
+    console.log(attribute);
     let varNames = Object.keys(attribute.values).map(x => "\\${" + x + "}");
 
     let regex = new RegExp('(' + varNames.join('|') + ')', 'g');

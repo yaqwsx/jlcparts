@@ -70,7 +70,7 @@ def normalizeAttribute(key, value):
             "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
             "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)",
             "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage",
-            "Voltage - Input (Min)"]:
+            "Voltage - Input (Min)", "Drain Source Voltage (Vdss)"]:
         value = attributes.voltageAttribute(value)
     elif key in ["Rated current", "surge current", "Current - Average Rectified (Io)",
                  "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
@@ -80,7 +80,7 @@ def normalizeAttribute(key, value):
                  "Output / Channel Current", "Current - Output",
                  "Saturation Current (Isat)"]:
         value = attributes.currentAttribute(value)
-    elif key in ["Power", "Power Per Element"]:
+    elif key in ["Power", "Power Per Element", "Power Dissipation (Pd)"]:
         value = attributes.powerAttribute(value)
     elif key in ["Number of Pins", "Number of Resistors", "Number of Loop",
                  "Number of Regulators", "Number of Outputs"]:
@@ -91,14 +91,18 @@ def normalizeAttribute(key, value):
         value = attributes.inductanceAttribute(value)
     elif key == "Rds On (Max) @ Id, Vgs":
         value = attributes.rdsOnMaxAtIdsAtVgs(value)
-    elif key == "Continuous Drain Current (Id) @ 25°C":
+    elif key in ["Operating Temperature (Max)", "Operating Temperature (Min)"]:
+        value = attributes.temperatureAttribute(value)
+    elif key.startswith("Continuous Drain Current"):
         value = attributes.continuousTransistorCurrent(value, "Id")
     elif key == "Current - Collector (Ic) (Max)":
         value = attributes.continuousTransistorCurrent(value, "Ic")
-    elif key == "Vgs(th) (Max) @ Id":
+    elif key in ["Vgs(th) (Max) @ Id", "Gate Threshold Voltage (Vgs(th)@Id)"]:
         value = attributes.vgsThreshold(value)
-    elif key == "Drain to Source Voltage(Vdss)":
+    elif key.startswith("Drain to Source Voltage"):
         value = attributes.drainToSourceVoltage(value)
+    elif key == "Drain Source On Resistance (RDS(on)@Vgs,Id)":
+        value = attributes.rdsOnMaxAtVgsAtIds(value)
     elif key == "Power Dissipation-Max (Ta=25°C)":
         value = attributes.powerDissipation(value)
     elif key in ["Equivalent Series Resistance", "Impedance @ Frequency"]:
@@ -118,6 +122,11 @@ def normalizeAttribute(key, value):
         value = attributes.vceBreakdown(value)
     elif key == "Vce(on) (Max) @ Vge, Ic":
         value = attributes.vceOnMax(value)
+    elif key in ["Input Capacitance (Ciss@Vds)",
+               "Reverse Transfer Capacitance (Crss@Vds)"]:
+        value = attributes.capacityAtVoltage(value)
+    elif key in ["Total Gate Charge (Qg@Vgs)"]:
+        value = attributes.chargeAtVoltage(value)
     else:
         value = attributes.stringAttribute(value)
     assert(isinstance(value, dict))

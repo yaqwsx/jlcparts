@@ -82,6 +82,7 @@ def readCurrent(value):
     return readWithSiPrefix(value)
 
 def readVoltage(value):
+    value = value.replace("v", "V")
     value = value.replace("V", "").strip()
     if value in ["-", "--"]:
         return "NaN"
@@ -103,6 +104,10 @@ def readPower(value):
 
 def readCapacitance(value):
     value = value.replace("F", "").strip()
+    return readWithSiPrefix(value)
+
+def readCharge(value):
+    value = value.replace("C", "").strip()
     return readWithSiPrefix(value)
 
 def readFrequency(value):
@@ -322,6 +327,69 @@ def rdsOnMaxAtIdsAtVgs(value):
             }
         }
 
+def rdsOnMaxAtVgsAtIds(value):
+    """
+    Given a string in format "<resistance> @ <voltage>, <current>" parse it and
+    return it as structured value
+    """
+    def readRds(v):
+        if value == "-":
+            return "NaN", "NaN", "NaN"
+        v = v.replace("，", ",") # Replace special unicode characters
+        # There is sometimes missing comma
+        v = re.sub(r"V(\d)", r"V,\1", v)
+        matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
+        if matched is None:
+            matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
+        resistance = matched.group(1).strip()
+        voltage = matched.group(2).strip()
+        current = matched.group(3).strip()
+        # There are sometimes swapped values
+        if current.endswith("V") and (voltage.endswith("A") or voltage.endswith("m")):
+            current, voltage = voltage, current
+        if voltage.endswith("A"):
+            voltage = voltage.replace("A", "V")
+        if current.endswith("V"):
+            current = current.replace("V", "A")
+        if not current.endswith("A"):
+            current += "A"
+        return (readResistance(resistance),
+                readCurrent(current),
+                readVoltage(voltage))
+    if value.count(",") == 3 or ";" in value:
+        # Double P & N MOSFET
+        if ";" in value:
+            s = value.split(";")
+        else:
+            s = value.split(",")
+            s = [s[0] + "," + s[1], s[2] + "," + s[3]]
+        rds1, id1, vgs1 = readRds(s[0])
+        rds2, id2, vgs2 = readRds(s[1])
+        return {
+            "format": "${Rds 1} @ ${Vgs 1}, ${Id 1}; ${Rds 2} @ ${Vgs 2}, ${Id 2}",
+            "primary": "Rds 1",
+            "values": {
+                "Rds 2": [rds2, "resistance"],
+                "Id 2": [id2, "current"],
+                "Vgs 2": [vgs2, "voltage"],
+                "Rds 1": [rds1, "resistance"],
+                "Id 1": [id1, "current"],
+                "Vgs 1": [vgs1, "voltage"]
+            }
+        }
+    else:
+        rds, ids, vgs = readRds(value)
+        return {
+            "format": "${Rds} @ ${Vgs}, ${Id}",
+            "primary": "Rds",
+            "values": {
+                "Rds": [rds, "resistance"],
+                "Id": [ids, "current"],
+                "Vgs": [vgs, "voltage"]
+            }
+        }
+
+
 def continuousTransistorCurrent(value, symbol):
     """
     Can parse values like '10A', '10A,12A', '1OA(Tc)'
@@ -425,12 +493,13 @@ def vgsThreshold(value):
     def readVgs(v):
         if value == "-":
             return "NaN", "NaN"
-        matched = re.match(r"(.*)@(.*)", v)
-        return readVoltage(matched.group(1)), readCurrent(matched.group(2))
+        matched = re.match(r"(.*?)(@| )(.*)", v)
+        return readVoltage(matched.group(1)), readCurrent(matched.group(3))
 
     value = re.sub(r"\(.*?\)", "", value)
-    if "," in value:
-        s = value.split(",")
+    if "," in value or ";" in value:
+        splitchar = "," if "," in value else ";"
+        s = value.split(splitchar)
         v1, i1 = readVgs(s[0])
         v2, i2 = readVgs(s[1])
         return {
@@ -665,3 +734,101 @@ def vceOnMax(value):
             "Ic": [ic, "current"]
         }
     }
+
+def temperatureAttribute(value):
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "temperature",
+            "values": {
+                "temperature": ["NaN", "temperature"]
+            }
+        }
+    value = erase(value, ["@"])
+    value = re.sub(r"\(.*?\)", "", value)
+    value = value.strip()
+    assert value.endswith("℃")
+    value = erase(value, ["℃"])
+    v = int(value)
+    return {
+        "format": "${temperature}",
+        "default": "temperature",
+        "values": {
+            "temperature": [v, "temperature"]
+        }
+    }
+
+def capacityAtVoltage(value):
+    """
+    Parses <capacity> @ <voltage>
+    """
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "capacity",
+            "values": {
+                "capacity": ["NaN", "capacitance"],
+                "voltage": ["NaN", "voltage"]
+            }
+        }
+    try:
+        c, v = tuple(value.split("@"))
+    except:
+        c, v = tuple(value.split(" "))
+    c = readCapacitance(c.strip())
+    v = readVoltage(v.strip())
+    return {
+            "format": "${capacity} @ ${voltage}",
+            "default": "capacity",
+            "values": {
+                "capacity": [c, "capacitance"],
+                "voltage": [v, "voltage"]
+            }
+        }
+
+def chargeAtVoltage(value):
+    """
+    Parses <charge> @ <voltage>
+    """
+    if value == "-":
+        return {
+            "format": "-",
+            "default": "charge",
+            "values": {
+                "charge": ["NaN", "capacitance"],
+                "voltage": ["NaN", "voltage"]
+            }
+        }
+    def readTheTuple(value):
+        try:
+            q, v = tuple(value.split("@"))
+        except:
+            q, v = tuple(value.split(" "))
+        q = readCharge(q.strip())
+        v = readVoltage(re.sub(r'-?\d+~', '', v.strip()))
+        return q, v
+
+    if ";" in value:
+        a, b = tuple(value.split(";"))
+        q1, v1 = readTheTuple(a)
+        q2, v2 = readTheTuple(b)
+        return {
+            "format": "${charge 1} @ ${voltage 1}; ${charge 2} @ ${voltage 2}",
+            "default": "charge 1",
+            "values": {
+                "charge 1": [q1, "charge"],
+                "voltage 1": [v2, "voltage"],
+                "charge 2": [q2, "charge"],
+                "voltage 2": [v2, "voltage"]
+            }
+        }
+        pass
+    q, v = readTheTuple(value)
+    return {
+            "format": "${charge} @ ${voltage}",
+            "default": "charge",
+            "values": {
+                "charge": [q, "charge"],
+                "voltage": [v, "voltage"]
+            }
+        }

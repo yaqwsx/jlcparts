@@ -84,7 +84,7 @@ def readCurrent(value):
 def readVoltage(value):
     value = value.replace("v", "V")
     value = value.replace("V", "").strip()
-    if value in ["-", "--"]:
+    if value in ["-", "--"] or "null" in value:
         return "NaN"
     return readWithSiPrefix(value)
 

@@ -771,12 +771,29 @@ def capacityAtVoltage(value):
                 "voltage": ["NaN", "voltage"]
             }
         }
-    try:
-        c, v = tuple(value.split("@"))
-    except:
-        c, v = tuple(value.split(" "))
-    c = readCapacitance(c.strip())
-    v = readVoltage(v.strip())
+    def readTheTuple(value):
+        try:
+            c, v = tuple(value.split("@"))
+        except:
+            c, v = tuple(value.split(" "))
+        c = readCapacitance(c.strip())
+        v = readVoltage(v.strip())
+        return c, v
+    if ";" in value:
+        a, b = tuple(value.split(";"))
+        c1, v1 = readTheTuple(a)
+        c2, v2 = readTheTuple(b)
+        return {
+            "format": "${capacity 1} @ ${voltage 1}; {capacity 2} @ ${voltage 2}",
+            "default": "capacity 1",
+            "values": {
+                "capacity 1": [c1, "capacitance"],
+                "voltage 1": [v1, "voltage"],
+                "capacity 2": [c2, "capacitance"],
+                "voltage 2": [v2, "voltage"]
+            }
+        }
+    c, v = readTheTuple(value)
     return {
             "format": "${capacity} @ ${voltage}",
             "default": "capacity",
@@ -822,7 +839,7 @@ def chargeAtVoltage(value):
                 "voltage 2": [v2, "voltage"]
             }
         }
-        pass
+
     q, v = readTheTuple(value)
     return {
             "format": "${charge} @ ${voltage}",

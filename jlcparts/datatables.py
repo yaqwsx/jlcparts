@@ -249,7 +249,9 @@ def buildtables(library, outdir):
     for catName, subcats in lib.categories().items():
         subcatIndex = {}
         for subcatName in subcats:
-            filebase = re.sub('[^A-Za-z0-9]', '_', catName + subcatName)
+            filebase = catName + subcatName
+            filebase = filebase.replace("&", "and").replace("/", "aka")
+            filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
 
             dataTable = buildDatatable(lib.lib[catName][subcatName])
             dataTable.update({"category": catName, "subcategory": subcatName})

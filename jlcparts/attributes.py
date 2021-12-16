@@ -245,7 +245,12 @@ def countAttribute(value):
     value = erase(value, [" - Dual"])
     value = re.sub(r"\(.*?\)", "", value)
     # There are expressions like a+b, so let's sum them
-    count = sum(map(int, value.split("+")))
+    try:
+        count = sum(map(int, value.split("+")))
+    except ValueError:
+        # Sometimes, there are floats in number of pins... God, why?
+        # See, e.g., C2836126
+        count = sum(map(float, value.split("+")))
     return {
         "format": "${count}",
         "default": "count",

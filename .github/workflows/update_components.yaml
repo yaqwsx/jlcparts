@@ -32,9 +32,11 @@ jobs:
           fi
       - name: Update database
         run: |
+          set -x
           sudo pip3 install -e .
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
-          wget -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
+          wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
+               -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
           iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
 
           jlcparts getlibrary --cache cache.json --age 20000 --newLogFile newComponents.txt partsUtf8.csv jlcdata.json

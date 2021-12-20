@@ -3,14 +3,15 @@ import re
 import os
 import json
 import datetime
-import sys
+import gzip
 from jlcparts.partLib import PartLibrary
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
 from pathlib import Path
 
-def saveJson(object, filename, hash=False, pretty=False):
-    with open(filename, "w") as f:
+def saveJson(object, filename, hash=False, pretty=False, compress=False):
+    openFn = gzip.open if compress else open
+    with openFn(filename, "wt", encoding="utf-8") as f:
         if pretty:
             json.dump(object, f, indent=4, sort_keys=True)
         else:
@@ -255,7 +256,8 @@ def buildtables(library, outdir):
 
             dataTable = buildDatatable(lib.lib[catName][subcatName])
             dataTable.update({"category": catName, "subcategory": subcatName})
-            dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json"), hash=True)
+            dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gzip"),
+                                hash=True, compress=True)
 
             stockTable = buildStocktable(lib.lib[catName][subcatName])
             stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)

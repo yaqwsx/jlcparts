@@ -15,6 +15,7 @@
     "dexie": "^3.0.2",
     "immer": "^7.0.8",
     "js-image-zoom": "^0.7.0",
+    "pako": "^1.0.11",
     "react": "^16.13.1",
     "react-copy-to-clipboard": "^5.0.2",
     "react-dom": "^16.13.1",

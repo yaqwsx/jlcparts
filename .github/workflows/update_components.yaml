@@ -43,8 +43,9 @@ jobs:
           cp jlcdata.json cache.json
           jlcparts buildtables jlcdata.json web/build/data
           zip web/build/data/cache.zip cache.json
-          wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
-          jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
+          # The cache feature is temporarily disabled as it is unusable
+          # wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
+          # jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact

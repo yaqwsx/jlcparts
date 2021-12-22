@@ -165,6 +165,7 @@ def voltageAttribute(value):
     value = value.replace("X1:", "")
     value = value.replace("A", "V") # Common typo
     value = erase(value, "±")
+    value = re.sub(";.*", "", value)
 
     if value.strip() in ["-", "Tracking", "nV"]:
         value = "NaN"

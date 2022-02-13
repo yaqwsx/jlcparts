@@ -14,6 +14,9 @@ from textwrap import indent
 
 CACHE_PATH = "/tmp/jlcparts"
 
+def normalizeCategoryName(catname):
+    return catname.replace("?", "")
+
 class PartLibrary:
     def __init__(self, filepath=None):
         if filepath is None:
@@ -22,7 +25,17 @@ class PartLibrary:
             return
         with open(filepath, "r") as f:
             self.lib = json.load(f)
-            self.buildIndex()
+
+        # Normalize category names
+        for _, category in self.lib.items():
+            keys = list(category.keys())
+            for k in keys:
+                category[normalizeCategoryName(k)] = category.pop(k)
+        keys = list(self.lib.keys())
+        for k in keys:
+            self.lib[normalizeCategoryName(k)] = self.lib.pop(k)
+
+        self.buildIndex()
         self.checkLibraryStructure()
 
     def buildIndex(self):

@@ -11,11 +11,14 @@ import time
 import shutil
 from pathlib import Path
 from textwrap import indent
+import urllib.parse
 
 CACHE_PATH = "/tmp/jlcparts"
 
 def normalizeCategoryName(catname):
-    return catname.replace("?", "")
+    return catname
+    # If you want to normalize category names, don't; you will break LCSC links!
+    # return catname.replace("?", "")
 
 class PartLibrary:
     def __init__(self, filepath=None):
@@ -173,10 +176,10 @@ def getLcscExtraNew(lcscNumber, onPause=None):
             params[row["paramNameEn"]] = row["paramValueEn"]
         params["images"] = resJson["productImages"]
 
-        catalogName = normalizeUrlPart(resJson["catalogName"])
-        man = normalizeUrlPart(resJson["brandNameEn"])
-        product = normalizeUrlPart(resJson["productModel"])
-        code = resJson["productCode"]
+        catalogName = urllib.parse.quote_plus(normalizeUrlPart(resJson["catalogName"]))
+        man = urllib.parse.quote_plus(normalizeUrlPart(resJson["brandNameEn"]))
+        product = urllib.parse.quote_plus(normalizeUrlPart(resJson["productModel"]))
+        code = urllib.parse.quote_plus(resJson["productCode"])
         params["url"] = f"https://lcsc.com/product-detail/{catalogName}_{man}-{product}_{code}.html"
 
         return params

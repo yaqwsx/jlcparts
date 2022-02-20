@@ -160,7 +160,12 @@ def getLcscExtraNew(lcscNumber, onPause=None):
             # Not in cache, fetch
             res = None
             res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
-            resJson = res.json()
+            try:
+                resJson = res.json()
+            except Exception as e:
+                print(res.status_code)
+                print(res.text)
+                raise e
             # Save to cache, make development more pleasant
             with open(cachePath / f"{lcscNumber}.json", "w") as f:
                 json.dump(resJson, f)

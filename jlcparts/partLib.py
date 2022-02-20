@@ -159,7 +159,9 @@ def getLcscExtraNew(lcscNumber, onPause=None):
         except:
             # Not in cache, fetch
             res = None
-            res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}")
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+            res = requests.get(f"https://wwwapi.lcsc.com/v1/products/detail?product_code={lcscNumber}",
+                               headers=headers)
             try:
                 resJson = res.json()
             except Exception as e:

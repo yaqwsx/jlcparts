@@ -39,7 +39,7 @@ function Header(props) {
         </p>
       </div>
     </div>
-    <div className="rounded my-3 p-2 border-blue-500 border-2">
+    {/* <div className="rounded my-3 p-2 border-blue-500 border-2">
       Do you enjoy this site? Consider supporting me so I can actively maintain projects like this one!
       Read more about <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/sponsors/yaqwsx">my story</a>.
       <table>
@@ -64,7 +64,7 @@ function Header(props) {
           </tr>
         </tbody>
       </table>
-    </div>
+    </div> */}
   </>
 }
 
@@ -74,7 +74,7 @@ function Footer(props) {
   </div>
 }
 
-function FFNote(props) {
+export function FFNote(props) {
   if (browser && browser.name === "firefox")
     return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
       <p className="font-bold">
@@ -93,7 +93,7 @@ function FFNote(props) {
   return <></>
 }
 
-class FirstTimeNote extends React.Component {
+export class FirstTimeNote extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -124,7 +124,7 @@ class FirstTimeNote extends React.Component {
   }
 }
 
-class NewComponentFormatWarning extends React.Component {
+export class NewComponentFormatWarning extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -151,7 +151,7 @@ class NewComponentFormatWarning extends React.Component {
   }
 }
 
-class UpdateBar extends React.Component {
+export class UpdateBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -272,6 +272,25 @@ export function NoMatch() {
   return <p>404 not found</p>;
 }
 
+function ShutDownNotice(props) {
+  return <div className="w-full p-8 my-2 bg-red-400 border-4 border-red-900 rounded">
+    <h2 className="text-xl text-bold">
+      This service is no longer available as LCSC.com does not wish so.
+    </h2>
+    <p>
+      Unfortunately, the companies above expressed that they consider this
+      service as "reptile" and "parasitic". I tried to negotiate with them,
+      however, they weren't open to any discussion and thus, I am forced to
+      shut down this service. I am sorry about that. If you want to make
+      something about that, please, don't write me, write them. I already did
+      my best.
+    </p>
+    <p>
+      Please, do not try to fork the service and make it available again.
+    </p>
+  </div>;
+}
+
 class App extends React.Component {
   constructor(props) {
     super(props);
@@ -297,11 +316,12 @@ class App extends React.Component {
     return (
       <Router basename="/" >
         <Container>
-          <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
+          {/* <UpdateBar onTriggerUpdate={this.triggerUpdate}/> */}
           <Header/>
-          <FirstTimeNote/>
-          <FFNote/>
-          <NewComponentFormatWarning/>
+          <ShutDownNotice/>
+          {/* <FirstTimeNote/> */}
+          {/* <FFNote/> */}
+          {/* <NewComponentFormatWarning/> */}
           <Navbar/>
               <Switch>
                   <Route exact path="/">

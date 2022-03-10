@@ -275,19 +275,15 @@ export function NoMatch() {
 function ShutDownNotice(props) {
   return <div className="w-full p-8 my-2 bg-red-400 border-4 border-red-900 rounded">
     <h2 className="text-xl text-bold">
-      This service is no longer available as LCSC.com does not wish so.
+      This service is temporarily unavailable due the loss of access to the data source.
     </h2>
     <p>
-      Unfortunately, the companies above expressed that they consider this
-      service as "reptile" and "parasitic". I tried to negotiate with them,
-      however, they weren't open to any discussion and thus, I am forced to
-      shut down this service. I am sorry about that. If you want to make
-      something about that, please, don't write me, write them. I already did
-      my best.
+      The way we used to obtained the data for this service was unacceptable for LCSC.com. We are currently in
+      touch with them and we are working on establishing a new way to access the data. However, I cannot give
+      you any estimate on when it will be available again. The updates on the topic will be probably available
+      on my <a href="https://twitter.com/yaqwsx_cz">Twitter</a>.
     </p>
-    <p>
-      Please, do not try to fork the service and make it available again.
-    </p>
+    <p>Thank you guys for your support!</p>
   </div>;
 }
 

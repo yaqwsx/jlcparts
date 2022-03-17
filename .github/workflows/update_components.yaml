@@ -31,7 +31,6 @@ jobs:
             echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
           fi
       - name: Update database
-        if: false
         run: |
           set -x
           # Show the outside IP address in log

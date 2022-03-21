@@ -8,9 +8,14 @@ jobs:
   build_and_update:
     name: "Update component database and frontend"
     runs-on: ubuntu-20.04
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -30,21 +35,36 @@ jobs:
           if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
             echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
           fi
+          touch .nojekyll
       - name: Update database
+        env: # Or as an environment variable
+          LCSC_KEY: ${{ secrets.LCSC_KEY }}
+          LCSC_SECRET: ${{ secrets.LCSC_SECRET }}
         run: |
           set -x
-          # Show the outside IP address in log
-          curl ifconfig.me
           sudo pip3 install -e .
-          wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip && unzip cache.zip
+
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z01 || true
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z02 || true
+          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z03 || true
+          zip -s 0 cache.zip --out unsplit-cache.zip
+          unzip unsplit-cache.zip
+
           wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
                -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
           iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
 
-          jlcparts getlibrary --cache cache.json --age 20000 --newLogFile newComponents.txt partsUtf8.csv jlcdata.json
+          jlcparts getlibrary --cache cache.json \
+                              --age 0 \
+                              --limit 50000 \
+                              partsUtf8.csv jlcdata.json
           cp jlcdata.json cache.json
           jlcparts buildtables jlcdata.json web/build/data
-          zip web/build/data/cache.zip cache.json
+
+          rm -f web/build/data/cache.z*
+          zip -s 50m web/build/data/cache.zip cache.json
+
           # The cache feature is temporarily disabled as it is unusable
           # wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
           # jlcparts updatechangelog newComponents.txt web/build/data/changelog.json

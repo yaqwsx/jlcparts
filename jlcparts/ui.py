@@ -7,7 +7,7 @@ import sys
 import json
 from multiprocessing import Pool, TimeoutError
 from requests.exceptions import ConnectionError
-from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtra, obtainCsrfTokenAndCookies, getLcscExtraNew
+from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtraNew
 from jlcparts.datatables import buildtables
 
 def fetchLcscData(component):
@@ -22,9 +22,11 @@ def fetchLcscData(component):
     help="Previously generated JSON file serving as a cache for LCSC informatioon")
 @click.option("--age", type=int, default=0,
     help="Automatically discard n oldest components and fetch them again")
+@click.option("--limit", type=int, default=10000,
+    help="Limit number of newly added components")
 @click.option("--newLogFile", type=click.Path(dir_okay=False), default=None,
     help="Save a file with newly added components (one LCSC code per line")
-def getLibrary(cache, source, output, age, newlogfile):
+def getLibrary(cache, source, output, age, newlogfile, limit):
     """
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
     provided by JLC PCB).
@@ -33,37 +35,33 @@ def getLibrary(cache, source, output, age, newlogfile):
     fetch LCSC extra data.
     """
     cacheLib = PartLibrary(cache)
-    deletedComponents = cacheLib.deleteNOldest(age)
     lib = PartLibrary()
 
     with open(source, newline="") as f:
         jlcTable = loadJlcTable(f)
 
     # Make copy of the output in case we make a mistake
-    if os.path.exists(output):
-        shutil.copy(output, output + ".bak")
+    if os.environ.get("JLCPARTS_DEV", "0") == "1":
+        if os.path.exists(output):
+            shutil.copy(output, output + ".bak")
 
     missing = set()
     for component in jlcTable.values():
         lcsc = component['lcsc']
-        if cacheLib.getComponent(lcsc) is None:
+        if not cacheLib.exists(lcsc):
             missing.add(lcsc)
-    print(f"Missing {len(missing)} components out of {len(jlcTable.values())}")
+    print(f"New {len(missing)} components out of {len(jlcTable.values())} total")
+
+    ageCount = min(age, max(0, limit - len(missing)))
+    print(f"{ageCount} components will be aged and thus refreshed")
+    cacheLib.deleteNOldest(ageCount)
 
     newComponents = []
-    total = len(jlcTable)
-    fetched = 0
-    lastSavedWhen = 0
-    def saveOnPause(lib=lib, output=output):
-        nonlocal fetched
-        nonlocal lastSavedWhen
-        if fetched != lastSavedWhen:
-            print(f"Automatically saving")
-            lib.save(output)
-            lastSavedWhen = fetched
     # First, handle existing components, so we save it into the cache
     componentsToFetch = []
     for component in jlcTable.values():
+        if len(componentsToFetch) >= limit:
+            break
         lcsc = component['lcsc']
         cached = cacheLib.getComponent(lcsc)
         if cached:
@@ -72,11 +70,12 @@ def getLibrary(cache, source, output, age, newlogfile):
             lib.addComponent(component)
         else:
             componentsToFetch.append(component)
+    print(f"{len(componentsToFetch)} components will be fetched.")
 
     with Pool(processes=10) as pool:
         for i, (component, extra) in enumerate(pool.imap_unordered(fetchLcscData, componentsToFetch)):
             lcsc = component['lcsc']
-            print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")
+            print(f"  {lcsc} fetched. {((i+1) / len(componentsToFetch) * 100):.2f} %")
             component["extra"] = extra
             component["extraTimestamp"] = int(time.time())
             lib.addComponent(component)

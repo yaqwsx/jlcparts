@@ -58,7 +58,6 @@ function componentText(component) {
 }
 
 export function formatAttribute(attribute) {
-    console.log(attribute);
     let varNames = Object.keys(attribute.values).map(x => "\\${" + x + "}");
 
     let regex = new RegExp('(' + varNames.join('|') + ')', 'g');
@@ -440,7 +439,9 @@ export class ComponentOverview extends React.Component {
                     var imgSrc = "./brokenimage.svg";
                     var zoomImgSrc = "./brokenimage.svg";
                     if (x.images && x.images.length > 0) {
-                        imgSrc = zoomImgSrc = x.images[0];
+                        let imgs = Array.from(Object.values(x.images[0]));
+                        imgSrc = imgs[0];
+                        zoomImgSrc = imgs[Math.min(1, imgs.length - 1)];
                     }
                     return <ZoomableLazyImage
                         height={90}
@@ -580,7 +581,8 @@ function ExpandedComponent(props) {
     let comp = props.component;
     var imgSrc = "./brokenimage.svg";
     if (comp.images && comp.images.length > 0) {
-        imgSrc = comp.images[0];
+        let imgs = Array.from(Object.values(comp.images[0]));
+        imgSrc = imgs[Math.min(1, imgs.length - 1)];
     }
     let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">

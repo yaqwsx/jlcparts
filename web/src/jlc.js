@@ -16,7 +16,6 @@ export class AttritionInfo extends React.Component {
     constructor(props) {
         super(props);
         this.props = props;
-        console.log(props);
         this.state = {}
     }
 

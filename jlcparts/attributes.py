@@ -66,7 +66,7 @@ def readResistance(value):
             split = [float(x) if x != "" else 0 for x in value.split(prefix)]
             value = split[0] * table[0] + split[1] * table[1]
             break
-    if value == "-" or value == "":
+    if value == "-" or value == "" or value == "null":
         value = "NaN"
     else:
         value = float(value)
@@ -83,6 +83,7 @@ def readCurrent(value):
 
 def readVoltage(value):
     value = value.replace("v", "V")
+    value = value.replace("V-", "V")
     value = value.replace("V", "").strip()
     if value in ["-", "--"] or "null" in value:
         return "NaN"
@@ -297,6 +298,8 @@ def rdsOnMaxAtIdsAtVgs(value):
         # There are some transistors with a typo; using "A" instead of "V" or Ω, fix it:
         resistance = matched.group(1).replace("A", "Ω")
         voltage = matched.group(3).replace("A", "V")
+        if "~" in voltage:
+            voltage = voltage.split("~")[-1]
         return (readResistance(resistance),
                 readCurrent(matched.group(2)),
                 readVoltage(voltage))
@@ -355,6 +358,8 @@ def rdsOnMaxAtVgsAtIds(value):
             current, voltage = voltage, current
         if voltage.endswith("A"):
             voltage = voltage.replace("A", "V")
+        if "~" in voltage:
+            voltage = voltage.split("~")[-1]
         if current.endswith("V"):
             current = current.replace("V", "A")
         if not current.endswith("A"):
@@ -403,6 +408,7 @@ def continuousTransistorCurrent(value, symbol):
     value = re.sub(r"\(.*?\)", "", value) # Remove all notes about temperature
     value = erase(value, ["±"])
     value = value.replace("V", "A") # There are some typos - voltage instead of current
+    value = value.replace(";", ",") # Sometimes semicolon is used instead of comma
     if "," in value:
         # Double P & N MOSFET
         s = value.split(",")
@@ -580,7 +586,10 @@ def rippleCurrent(value):
     if len(s) == 1:
         s = value.split(" ")
     i = readCurrent(s[0])
-    f = readFrequency(s[1].split("~")[-1])
+    if len(s) > 1:
+        f = readFrequency(s[1].split("~")[-1])
+    else:
+        f = "NaN"
     return {
         "format": "${current} @ ${frequency}",
         "default": "current",
@@ -828,6 +837,8 @@ def chargeAtVoltage(value):
         except:
             q, v = tuple(value.split(" "))
         q = readCharge(q.strip())
+        if "/" in v:
+            v = v.split("/")[-1]
         v = readVoltage(re.sub(r'-?\d+~', '', v.strip()))
         return q, v
 

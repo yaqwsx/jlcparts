@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-import json
-import sys
-import click
 import csv
-import re
-import time
-import shutil
-import sqlite3
+import json
 import os
-from pathlib import Path
-from textwrap import indent
+import sqlite3
+import time
 import urllib.parse
 from contextlib import contextmanager
+from pathlib import Path
+from textwrap import indent
+
 from .lcsc import makeLcscRequest
 
 if os.environ.get("JLCPARTS_DEV", "0") == "1":
@@ -33,9 +30,17 @@ def lcscToDb(val):
 def lcscFromDb(val):
     return f"C{val}"
 
+def dbToComp(comp):
+    comp = {k: comp[k] for k in comp.keys()}
+    comp["lcsc"] = lcscFromDb(comp["lcsc"])
+    comp["price"] = json.loads(comp["price"])
+    comp["extra"] = json.loads(comp["extra"])
+    return comp
+
 class PartLibraryDb:
     def __init__(self, filepath=None):
         self.conn = sqlite3.connect(filepath)
+        self.conn.row_factory = sqlite3.Row
         self.transation = False
         self.categoryCache = {}
         self.manufacturerCache = {}
@@ -54,8 +59,17 @@ class PartLibraryDb:
                 stock INTEGER NOT NULL,
                 price TEXT NOT NULL,
                 last_update INTEGER NOT NULL,
-                extra TEXT
+                extra TEXT,
+                flag INTEGER NOT NULL DEFAULT 0
             )""")
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS components_category
+            ON components (category_id)
+            """)
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS components_manufacturer
+            ON components (manufacturer_id)
+            """)
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS manufacturers (
                 id INTEGER PRIMARY KEY NOT NULL,
@@ -69,6 +83,27 @@ class PartLibraryDb:
                 subcategory TEXT NOT NULL,
             UNIQUE (id, category, subcategory)
             )""")
+        self.conn.execute("""
+            CREATE VIEW IF NOT EXISTS v_components AS
+                SELECT
+                    c.lcsc AS lcsc,
+                    c.category_id AS category_id,
+                    cat.category AS category,
+                    cat.subcategory AS subcategory,
+                    c.mfr AS mfr,
+                    c.package AS package,
+                    c.joints AS joints,
+                    m.name AS manufacturer,
+                    c.basic AS basic,
+                    c.description AS description,
+                    c.datasheet AS datasheet,
+                    c.stock AS stock,
+                    c.price AS price,
+                    c.extra AS extra
+                FROM components c
+                LEFT JOIN manufacturers m ON c.manufacturer_id = m.id
+                LEFT JOIN categories cat ON c.category_id = cat.id
+            """)
         self.conn.commit()
 
     def _commit(self):
@@ -77,6 +112,24 @@ class PartLibraryDb:
         """
         if not self.transation:
             self.conn.commit()
+
+    def vacuum(self):
+        self.conn.execute("VACUUM")
+
+    def resetFlag(self, value=0):
+        self.conn.execute("UPDATE components SET flag = ?", (value,))
+        self._commit()
+
+    def countFlag(self, value=0):
+        return self.conn.execute("SELECT COUNT() FROM components  WHERE flag = ?",
+                                 (value,)).fetchone()[0]
+
+    def countCategories(self,):
+        return self.conn.execute("SELECT COUNT() FROM categories").fetchone()[0]
+
+    def removeWithFlag(self, value=1):
+        self.conn.execute("DELETE FROM components WHERE flag = ?", (value,))
+        self._commit()
 
     @contextmanager
     def startTransaction(self):
@@ -93,77 +146,118 @@ class PartLibraryDb:
 
     def getComponent(self, lcscNumber):
         result = self.conn.execute("""
-            SELECT
-                c.lcsc AS lcsc,
-                cat.category AS category,
-                cat.subcategory AS subcategory,
-                c.mfr AS mfr,
-                c.package AS package,
-                c.joints AS joints,
-                m.name AS manufacturer,
-                c.basic AS basic,
-                c.description AS description,
-                c.datasheet AS datasheet,
-                c.stock AS stock,
-                c.price AS price
-                c.extra AS extra
-            FROM components c
-            WHERE lcsc = ?
-            LEFT JOIN manufacturers m ON c.manufacturer_id = m.id
-            LEFT JOIN categories cat ON c.category_id = cat.id
-            LIMIT 1
+            SELECT * FROM v_components
+                WHERE lcsc = ?
+                LIMIT 1
             """, (lcscToDb(lcscNumber),)).fetchone()
-        result = [result[k] for k in result.keys()]
-        result["lcsc"] = lcscFromDb(result["lcsc"])
-        result["price"] = json.loads(result["price"])
-        result["extra"] = json.loads(result["extra"])
-        return result
+        return dbToComp(result)
 
-    def addComponent(self, component):
+    def exists(self, lcscNumber):
+        result = self.conn.execute("""
+            SELECT lcsc FROM components
+                WHERE lcsc = ?
+                LIMIT 1
+            """, (lcscToDb(lcscNumber),)).fetchone()
+        return result is not None
+
+    def getCategoryId(self, category, subcategory):
+        c = (category, subcategory)
+        catId = self.manufacturerCache.get(c, None)
+        if catId is not None:
+            return catId
+        catId = self.conn.execute("""
+            SELECT id FROM categories WHERE category = ? AND subcategory = ?
+            """, c).fetchone()
+        if catId is not None:
+            catId = catId[0]
+        return catId
+
+    def getOrCreateCategoryId(self, category, subcategory):
+        catId = self.getCategoryId(category, subcategory)
+        if catId is not None:
+            return catId
+        c = (category, subcategory)
+        cur = self.conn.cursor()
+        cur.execute("""
+                INSERT INTO categories (category, subcategory) VALUES (?, ?)
+                """, c)
+        catId = cur.lastrowid
+        self._commit()
+        self.categoryCache[c] = catId
+        return catId
+
+    def getCategoryComponents(self, category, subcategory):
+        """
+        Return an iterable of category components
+        """
+        catId = self.getCategoryId(category, subcategory)
+        result = self.conn.cursor().execute("""
+            SELECT * FROM v_components WHERE category_id = ?
+            """, (catId,))
+        return map(dbToComp, result)
+
+
+    def addComponent(self, component, flag=None):
+        cur = self.conn.cursor()
         m = component["manufacturer"]
         manId = self.manufacturerCache.get(m, None)
         if manId is None:
-            manId = self.conn.execute("""
+            manId = cur.execute("""
                 SELECT id FROM manufacturers WHERE name = ?
                 """, (m,)).fetchone()
             if manId is not None:
                 manId = manId[0]
         if manId is None:
-            self.conn.execute("""
+            cur.execute("""
                 INSERT INTO manufacturers (name) VALUES (?)
                 """,(m,))
-            manId = self.conn.lastrowid
+            manId = cur.lastrowid
         self.manufacturerCache[m] = manId
 
-        c = (component["category"], component["subcategory"])
-        catId = self.manufacturerCache.get(c, None)
-        if catId is None:
-            catId = self.conn.execute("""
-                SELECT id FROM categories WHERE category = ? AND subcategory = ?
-                """, c).fetchone()
-            if catId is not None:
-                catId = catId[0]
-        if catId is None:
-            self.conn.execute("""
-                INSERT INTO categories (category, subcategory) VALUES (?, ?)
-                """, c)
-            catId = self.conn.lastrowid
-        self.categoryCache[c] = catId
+        catId = self.getOrCreateCategoryId(component["category"], component["subcategory"])
 
         c = component
-        self.conn.execute("""
-            INSERT INTO components (lcsc, category_id, mfr, package, joints, manufacturer_id, basic, description, datasheet, stock, price, last_update, extra)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                lcscToDb(c["lcsc"]), catId, c["mfr"], c["package"], c["joints"], manId,
+        data = [lcscToDb(c["lcsc"]), catId, c["mfr"], c["package"], c["joints"], manId,
                 c["basic"], c["description"], c["datasheet"], c["stock"],
-                json.dumps(c["price"]), int(time.time()), json.dumps(c["extra"])
-            ))
+                json.dumps(c["price"]), int(time.time()), json.dumps(c["extra"])]
+        if flag is not None:
+            data.append(flag)
+        cur.execute(f"""
+            INSERT INTO components
+                (lcsc, category_id, mfr, package, joints, manufacturer_id,
+                basic, description, datasheet, stock, price, last_update,
+                extra {', flag' if flag is not None else ''})
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? {', ?' if flag is not None else ''})
+            """, data)
         self._commit()
 
-    def updateJlcPart(self, component):
+    def updateExtra(self, lcsc, extra):
+        self.conn.execute(f"""
+            UPDATE components
+            SET extra = ?, last_update = ?
+            WHERE lcsc = ?
+            """, (json.dumps(extra), int(time.time()), lcscToDb(lcsc)))
+        self._commit()
+
+    def updateJlcPart(self, component, flag=None):
+        """
+        Return if the update was successful or not
+        """
         c = component
-        self.conn.execute("""
+        data = [c["mfr"],
+                c["package"],
+                c["joints"],
+                c["basic"],
+                c["description"],
+                c["datasheet"],
+                c["stock"],
+                json.dumps(c["price"])]
+        if flag is not None:
+            data.append(flag)
+        data.append(lcscToDb(c["lcsc"]))
+
+        cursor = self.conn.cursor()
+        res = cursor.execute(f"""
             UPDATE components
             SET mfr = ?,
                 package = ?,
@@ -173,39 +267,32 @@ class PartLibraryDb:
                 datasheet = ?,
                 stock = ?,
                 price = ?
+                {', flag = ?' if flag is not None else ''}
             WHERE lcsc = ?
-            """, (
-                c["mfr"],
-                c["package"],
-                c["joints"],
-                c["basic"],
-                c["description"],
-                c["datasheet"],
-                c["stock"],
-                c["price"],
-                lcscToDb(c["lcsc"])
-            ))
+            """, data)
         self._commit()
+
 
     def categories(self):
         res = {}
-        for x in self.conn.execute("SELECT category, subcategory FROM categories"):
+        for x in self.conn.cursor().execute("SELECT id, category, subcategory FROM categories"):
             category = x["category"]
-            subcat = x["subcat"]
-            if category in res[category]:
+            subcat = x["subcategory"]
+            if category in res:
                 res[category].append(subcat)
             else:
                 res[category] = [subcat]
+            self.categoryCache[(category, subcat)] = x["id"]
         return res
 
     def delete(self, lcscNumber):
         self.conn.execute("DELETE FROM components WHERE lcsc = ?", (lcscToDb(lcscNumber),))
         self._commit()
 
-    def deleteNOldest(self, count):
-        self.conn.execute("DELETE FROM components ORDER_BY last_update ASC LIMIT ?", (count,))
-        self._commit()
-
+    def getNOldest(self, count):
+        cursor = self.conn.cursor()
+        result = cursor.execute("SELECT lcsc FROM components ORDER BY last_update ASC LIMIT ?", (count,))
+        return map(lambda x: lcscFromDb(x["lcsc"]), result)
 
 
 class PartLibrary:

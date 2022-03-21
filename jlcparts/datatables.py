@@ -4,7 +4,7 @@ import os
 import json
 import datetime
 import gzip
-from jlcparts.partLib import PartLibrary
+from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
 from pathlib import Path
@@ -214,11 +214,11 @@ def buildDatatable(components):
               "datasheet", "price", "images", "url", "attributes"]
     return {
         "schema": schema,
-        "components": [extractComponent(x, schema) for x in components.values()]
+        "components": [extractComponent(x, schema) for x in components]
     }
 
 def buildStocktable(components):
-    return {component["lcsc"]: component["stock"] for component in components.values() }
+    return {component["lcsc"]: component["stock"] for component in components }
 
 def clearDir(directory):
     """
@@ -238,33 +238,38 @@ def buildtables(library, outdir):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
-    lib = PartLibrary(library)
+    lib = PartLibraryDb(library)
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)
 
     categoryIndex = {}
-    for catName, subcats in lib.categories().items():
-        subcatIndex = {}
-        for subcatName in subcats:
-            filebase = catName + subcatName
-            filebase = filebase.replace("&", "and").replace("/", "aka")
-            filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
+    with lib.startTransaction():
+        currentIdx = 0
+        total = lib.countCategories()
+        for catName, subcats in lib.categories().items():
+            subcatIndex = {}
+            for subcatName in subcats:
+                currentIdx += 1
+                print(f"{((currentIdx) / total * 100):.2f} % {catName}: {subcatName}")
+                filebase = catName + subcatName
+                filebase = filebase.replace("&", "and").replace("/", "aka")
+                filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
 
-            dataTable = buildDatatable(lib.lib[catName][subcatName])
-            dataTable.update({"category": catName, "subcategory": subcatName})
-            dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gzip"),
-                                hash=True, compress=True)
+                dataTable = buildDatatable(lib.getCategoryComponents(catName, subcatName))
+                dataTable.update({"category": catName, "subcategory": subcatName})
+                dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gzip"),
+                                    hash=True, compress=True)
 
-            stockTable = buildStocktable(lib.lib[catName][subcatName])
-            stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
+                stockTable = buildStocktable(lib.getCategoryComponents(catName, subcatName))
+                stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
 
-            assert(subcatName not in subcatIndex)
-            subcatIndex[subcatName] = {
-                "sourcename": filebase,
-                "datahash": dataHash,
-                "stockhash": stockHash
-            }
-        categoryIndex[catName] = subcatIndex
+                assert(subcatName not in subcatIndex)
+                subcatIndex[subcatName] = {
+                    "sourcename": filebase,
+                    "datahash": dataHash,
+                    "stockhash": stockHash
+                }
+            categoryIndex[catName] = subcatIndex
     index = {
         "categories": categoryIndex,
         "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()

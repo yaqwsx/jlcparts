@@ -9,7 +9,7 @@ def migrate_to_db(input, output):
     pLib = PartLibrary(input)
     dbLib = PartLibraryDb(output)
 
-    with dbLib:
+    with dbLib.startTransaction():
         l = len(pLib.index)
         for i, id in enumerate(pLib.index.keys()):
             c = pLib.getComponent(id)

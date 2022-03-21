@@ -1,32 +1,24 @@
-import click
-import shutil
-import os
-import time
-import datetime
-import sys
-import json
-from multiprocessing import Pool, TimeoutError
-from requests.exceptions import ConnectionError
-from jlcparts.partLib import PartLibrary, loadJlcTable, getLcscExtraNew
-from jlcparts.datatables import buildtables
+from multiprocessing import Pool
 
-def fetchLcscData(component):
-    lcsc = component['lcsc']
+import click
+
+from jlcparts.datatables import buildtables
+from jlcparts.partLib import (PartLibrary, PartLibraryDb, getLcscExtraNew,
+                              loadJlcTable, loadJlcTableLazy)
+
+
+def fetchLcscData(lcsc):
     extra = getLcscExtraNew(lcsc)
-    return (component, extra)
+    return (lcsc, extra)
 
 @click.command()
 @click.argument("source", type=click.Path(dir_okay=False, exists=True))
-@click.argument("output", type=click.Path(dir_okay=False, writable=True))
-@click.option("--cache", type=click.Path(dir_okay=False, exists=True),
-    help="Previously generated JSON file serving as a cache for LCSC informatioon")
+@click.argument("db", type=click.Path(dir_okay=False, writable=True))
 @click.option("--age", type=int, default=0,
     help="Automatically discard n oldest components and fetch them again")
 @click.option("--limit", type=int, default=10000,
     help="Limit number of newly added components")
-@click.option("--newLogFile", type=click.Path(dir_okay=False), default=None,
-    help="Save a file with newly added components (one LCSC code per line")
-def getLibrary(cache, source, output, age, newlogfile, limit):
+def getLibrary(source, db, age, limit):
     """
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
     provided by JLC PCB).
@@ -34,79 +26,35 @@ def getLibrary(cache, source, output, age, newlogfile, limit):
     Cou can specify previously downloaded library as a cache to save requests to
     fetch LCSC extra data.
     """
-    cacheLib = PartLibrary(cache)
-    lib = PartLibrary()
+    OLD = 0
+    REFRESHED = 1
 
-    with open(source, newline="") as f:
-        jlcTable = loadJlcTable(f)
-
-    # Make copy of the output in case we make a mistake
-    if os.environ.get("JLCPARTS_DEV", "0") == "1":
-        if os.path.exists(output):
-            shutil.copy(output, output + ".bak")
-
+    db = PartLibraryDb(db)
     missing = set()
-    for component in jlcTable.values():
-        lcsc = component['lcsc']
-        if not cacheLib.exists(lcsc):
-            missing.add(lcsc)
-    print(f"New {len(missing)} components out of {len(jlcTable.values())} total")
+    total = 0
+    with db.startTransaction():
+        db.resetFlag(value=OLD)
+        with open(source, newline="") as f:
+            jlcTable = loadJlcTableLazy(f)
+            for component in jlcTable:
+                total += 1
+                if db.exists(component["lcsc"]):
+                    db.updateJlcPart(component, flag=REFRESHED)
+                else:
+                    component["extra"] = {}
+                    db.addComponent(component, flag=REFRESHED)
+                    missing.add(component["lcsc"])
+        print(f"New {len(missing)} components out of {total} total")
+        ageCount = min(age, max(0, limit - len(missing)))
+        print(f"{ageCount} components will be aged and thus refreshed")
+        missing = missing.union(db.getNOldest(ageCount))
 
-    ageCount = min(age, max(0, limit - len(missing)))
-    print(f"{ageCount} components will be aged and thus refreshed")
-    cacheLib.deleteNOldest(ageCount)
-
-    newComponents = []
-    # First, handle existing components, so we save it into the cache
-    componentsToFetch = []
-    for component in jlcTable.values():
-        if len(componentsToFetch) >= limit:
-            break
-        lcsc = component['lcsc']
-        cached = cacheLib.getComponent(lcsc)
-        if cached:
-            component["extra"] = cached["extra"]
-            component["extraTimestamp"] = cached["extraTimestamp"] if "extraTimestamp" in cached else 0
-            lib.addComponent(component)
-        else:
-            componentsToFetch.append(component)
-    print(f"{len(componentsToFetch)} components will be fetched.")
-
-    with Pool(processes=10) as pool:
-        for i, (component, extra) in enumerate(pool.imap_unordered(fetchLcscData, componentsToFetch)):
-            lcsc = component['lcsc']
-            print(f"  {lcsc} fetched. {((i+1) / len(componentsToFetch) * 100):.2f} %")
-            component["extra"] = extra
-            component["extraTimestamp"] = int(time.time())
-            lib.addComponent(component)
-    lib.save(output)
-    if newlogfile:
-        with open(newlogfile, "w") as f:
-            for c in newComponents:
-                f.write(c + "\n")
-
-@click.command()
-@click.argument("newComponents", type=click.Path(exists=True, dir_okay=False))
-@click.argument("changelog", type=click.Path(exists=True, dir_okay=False))
-def updatechangelog(newcomponents, changelog):
-    comps = [x.strip() for x in open(newcomponents).readlines()]
-
-    with open(changelog) as f:
-        logContent = f.read()
-        if len(logContent) == 0:
-            logContent = "{}"
-        log = json.loads(logContent)
-    print(log)
-
-    today = datetime.date.today()
-    todayStr = f'{today}'
-    if todayStr not in changelog:
-        log[todayStr] = comps
-    else:
-        log[todayStr] = list(set(comps) + set(log[todayStr]))
-
-    with open(changelog, "w") as f:
-        f.write(json.dumps(log))
+        with Pool(processes=10) as pool:
+            for i, (lcsc, extra) in enumerate(pool.imap_unordered(fetchLcscData, missing)):
+                print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")
+                db.updateExtra(lcsc, extra)
+        db.removeWithFlag(value=OLD)
+    db.vacuum()
 
 
 @click.command()
@@ -127,7 +75,7 @@ def listcategories(libraryfilename):
 def listattributes(libraryfilename):
     """
     Print all keys in the extra["attributes"] arguments from library specified by
-    LIBRARYFILENAMEto standard output
+    LIBRARYFILENAME to standard output
     """
     keys = set()
     lib = PartLibrary(libraryfilename)
@@ -161,7 +109,6 @@ cli.add_command(getLibrary)
 cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
-cli.add_command(updatechangelog)
 cli.add_command(fetchDetails)
 
 if __name__ == "__main__":

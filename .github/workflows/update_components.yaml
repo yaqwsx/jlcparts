@@ -12,15 +12,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Set Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 10
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            python3 python3-pip nodejs npm wget zip unzip
+            python3 python3-pip nodejs npm wget zip unzip p7zip-full
           sudo pip3 install requests click
       - name: Build frontend
         run: |
@@ -48,26 +44,19 @@ jobs:
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.z01 || true
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.z02 || true
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.z03 || true
-          zip -s 0 cache.zip --out unsplit-cache.zip
-          unzip unsplit-cache.zip
+          7z x cache.zip
 
           wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
                -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
           iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
 
-          jlcparts getlibrary --cache cache.json \
-                              --age 0 \
+          jlcparts getlibrary --age 10000 \
                               --limit 50000 \
-                              partsUtf8.csv jlcdata.json
-          cp jlcdata.json cache.json
-          jlcparts buildtables jlcdata.json web/build/data
+                              partsUtf8.csv cache.sqlite3
+          jlcparts buildtables cache.sqlite3 web/build/data
 
           rm -f web/build/data/cache.z*
-          zip -s 50m web/build/data/cache.zip cache.json
-
-          # The cache feature is temporarily disabled as it is unusable
-          # wget -q -O web/build/data/changelog.json https://yaqwsx.github.io/jlcparts/data/changelog.json
-          # jlcparts updatechangelog newComponents.txt web/build/data/changelog.json
+          zip -s 50m web/build/data/cache.zip cache.sqlite3
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact

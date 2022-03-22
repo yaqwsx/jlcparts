@@ -2,8 +2,8 @@ name: "Update component database"
 on:
   push:
   pull_request:
-  # schedule:
-  #   - cron: '0 3 * * *'
+  schedule:
+    - cron: '0 3 * * *'
 jobs:
   build_and_update:
     name: "Update component database and frontend"

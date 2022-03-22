@@ -475,6 +475,9 @@ export class ComponentOverview extends React.Component {
                 sortable: true,
                 displayGetter: x => {
                     let price = getQuantityPrice(this.state.quantity, x.price)
+                    if (price === undefined) {
+                        return "Not available";
+                    }
                     let unitPrice = Math.round((price + Number.EPSILON) * 1000) / 1000;
                     let sumPrice = Math.round((price * this.state.quantity + Number.EPSILON) * 1000) / 1000;
                     return <>
@@ -486,6 +489,12 @@ export class ComponentOverview extends React.Component {
                 comparator: (a, b) => {
                     let aPrice = getQuantityPrice(this.state.quantity, a.price);
                     let bPrice = getQuantityPrice(this.state.quantity, b.price);
+                    if (aPrice === undefined && bPrice === undefined)
+                        return 0;
+                    if (aPrice === undefined)
+                        return 1;
+                    if (bPrice === undefined)
+                        return -1;
                     return aPrice - bPrice
                 }
             },

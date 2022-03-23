@@ -83,7 +83,7 @@ export class SortableTable extends React.Component {
 
     getPropAsString = propName => {
         if (this.props[propName])
-            return this.props.[propName];
+            return this.props[propName];
         return "";
     }
 

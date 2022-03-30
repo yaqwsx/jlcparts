@@ -461,8 +461,8 @@ export class ComponentOverview extends React.Component {
             {
                 name: "Manufacturer",
                 sortable: true,
-                displayGetter: x => x.manufacturer,
-                comparator: (a, b) => a.manufacturer.localeCompare(b.manufacturer)
+                displayGetter: x => formatAttribute(x.attributes["Manufacturer"]),
+                comparator: (a, b) => formatAttribute(a.attributes["Manufacturer"]).localeCompare(formatAttribute(b.attributes["Manufacturer"]))
             },
             {
                 name: "Stock",

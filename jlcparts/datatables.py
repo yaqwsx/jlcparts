@@ -193,6 +193,8 @@ def extractComponent(component, schema):
                 attr.pop("url", None)
                 attr.pop("images", None)
 
+                attr["Manufacturer"] = component.get("manufacturer", None)
+
                 attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
                 propertyList.append(attr)
             elif schItem == "images":
@@ -210,7 +212,7 @@ def extractComponent(component, schema):
         raise RuntimeError(f"Cannot extract {component['lcsc']}").with_traceback(e.__traceback__)
 
 def buildDatatable(components):
-    schema = ["lcsc", "mfr", "joints", "manufacturer", "description",
+    schema = ["lcsc", "mfr", "joints", "description",
               "datasheet", "price", "images", "url", "attributes"]
     return {
         "schema": schema,

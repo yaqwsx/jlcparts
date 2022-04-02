@@ -29,7 +29,7 @@ const SOURCE_PATH = "data";
 export async function updateComponentLibrary(report) {
     await persist();
     report({"Component index": ["fetching", false]})
-    let index = await fetchJson(`${SOURCE_PATH}/index.json`, false,
+    let index = await fetchJson(`${SOURCE_PATH}/index.json`,
         "Cannot fetch categories index: ");
     let progress = {}
     let updateProgress = (name, status) => {
@@ -85,7 +85,7 @@ export async function updateComponentLibrary(report) {
 
 // Check if the component library can be updated
 export async function checkForComponentLibraryUpdate() {
-    let index = await fetchJson(`${SOURCE_PATH}/index.json`, false,
+    let index = await fetchJson(`${SOURCE_PATH}/index.json`,
         "Cannot fetch categories index: ");
     let updateAvailable = false;
     let onUpdate = (category) => { updateAvailable = true; return category; }
@@ -103,36 +103,32 @@ export async function checkForComponentLibraryUpdate() {
 }
 
 // Fetch a JSON. If error occures,
-export async function fetchJson(path, compressed, errorIntro) {
+export async function fetchJson(path, errorIntro) {
     let response = await fetch(path);
     if (!response.ok) {
         throw Error(errorIntro + response.statusText);
     }
+
     let contentType = response.headers.get('Content-Type');
-    if (compressed) {
-        if (!contentType || contentType.indexOf("application/octet-stream") === -1) {
-            throw Error(errorIntro + `Response is not a compressed JSON, but ${contentType}: ` + path);
-        }
-        try {
-            let data = await response.arrayBuffer()
-            let text = pako.ungzip(data, { to: 'string' })
-            return JSON.parse(text);
-        }
-        catch (error) {
-            throw Error(errorIntro + `${error}: ` + path);
-        }
+    if (!contentType) {
+        throw Error(errorIntro + 'Missing "Content-Type" header for: ' + path);
     }
 
-    // It is a JSON
-    if (!contentType || contentType.indexOf("application/json") === -1) {
-        throw Error(errorIntro + `Response is not JSON, but ${contentType}: ` + path);
-    }
     try {
-        return await response.json();
+        if (contentType.includes("application/json")) {
+            return await response.json();
+        }
+        if (contentType.includes("application/gzip")) {
+            let data = await response.arrayBuffer();
+            let text = pako.ungzip(data, { to: 'string' });
+            return JSON.parse(text);
+        }
     }
     catch (error) {
         throw Error(errorIntro + `${error}: ` + path);
     }
+
+    throw Error(errorIntro + `Response is not a (compressed) JSON, but ${contentType}: ` + path);
 }
 
 async function fetchText(path, errorIntro) {
@@ -200,7 +196,7 @@ async function addComponents(category, components) {
 
 // Add a single category and fetch all of its components
 async function addCategory(categoryName, subcategoryName, attributes) {
-    let components = await fetchJson(`${SOURCE_PATH}/${attributes["sourcename"]}.json.gzip`, true,
+    let components = await fetchJson(`${SOURCE_PATH}/${attributes["sourcename"]}.json.gz`,
         `Cannot fetch components for category ${categoryName}: ${subcategoryName}: `);
     let c = await db.transaction("rw", db.categories, db.components, async () => {
         let key = await db.categories.put({
@@ -219,7 +215,7 @@ async function addCategory(categoryName, subcategoryName, attributes) {
 
 // Fetch and update stock
 async function updateStock(category) {
-    let stock = await fetchJson(`${SOURCE_PATH}/${category["sourcename"]}.stock.json`, false,
+    let stock = await fetchJson(`${SOURCE_PATH}/${category["sourcename"]}.stock.json`,
         `Cannot fetch stock for category ${category["category"]}: ${category["subcategory"]}: `);
     await db.components.where({category: category.id}).modify(component =>{
         component.stock = stock[component.lcsc];

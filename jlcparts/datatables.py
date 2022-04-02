@@ -257,7 +257,7 @@ def buildtables(library, outdir):
 
                 dataTable = buildDatatable(lib.getCategoryComponents(catName, subcatName))
                 dataTable.update({"category": catName, "subcategory": subcatName})
-                dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gzip"),
+                dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gz"),
                                     hash=True, compress=True)
 
                 stockTable = buildStocktable(lib.getCategoryComponents(catName, subcatName))

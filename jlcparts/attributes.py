@@ -59,7 +59,8 @@ def readResistance(value):
         "m": [1e-3, 1e-6],
         "K": [1e3, 1],
         "k": [1e3, 1],
-        "M": [1e6, 1e3]
+        "M": [1e6, 1e3],
+        "G": [1e9, 1e6]
     }
     for prefix, table in unitPrefixes.items():
         if prefix in value:

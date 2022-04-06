@@ -84,7 +84,7 @@ def normalizeAttribute(key, value):
     elif key in ["Power", "Power Per Element", "Power Dissipation (Pd)"]:
         value = attributes.powerAttribute(value)
     elif key in ["Number of Pins", "Number of Resistors", "Number of Loop",
-                 "Number of Regulators", "Number of Outputs"]:
+                 "Number of Regulators", "Number of Outputs", "Number of Capacitors"]:
         value = attributes.countAttribute(value)
     elif key in ["Capacitance"]:
         value = attributes.capacitanceAttribute(value)
@@ -144,9 +144,9 @@ def normalizeAttributeKey(key):
         key = key.replace("(Ohms)", "").strip()
     if key == "aristor Voltage(Min)":
         key = "Varistor Voltage(Min)"
-    if key == "ESR (Equivalent Series Resistance)":
+    if key in ["ESR (Equivalent Series Resistance)", "Equivalent Series   Resistance(ESR)"] or key.startswith("Equivalent Series Resistance"):
         key = "Equivalent Series Resistance"
-    if key in ["Allowable Voltage(Vdc)", "Voltage - Max"]:
+    if key in ["Allowable Voltage(Vdc)", "Voltage - Max", "Rated Voltage"] or key.startswith("Voltage Rated"):
         key = "Allowable Voltage"
     if key in ["DC Resistance (DCR)", "DC Resistance (DCR) (Max)", "DCR( Ω Max )"]:
         key = "DC Resistance"
@@ -160,6 +160,12 @@ def normalizeAttributeKey(key):
         key = "Voltage - Breakdown (Min)"
     if key == "Gate Threshold Voltage-VGE(th)":
         key = "Vgs(th) (Max) @ Id"
+    if key == "Pins Structure":
+        key = "Pin Structure"
+    if key.startswith("Lifetime @ Temp"):
+        key = "Lifetime @ Temperature"
+    if key.startswith("Q @ Freq"):
+        key = "Q @ Frequency"
     return key
 
 def pullExtraAttributes(component):

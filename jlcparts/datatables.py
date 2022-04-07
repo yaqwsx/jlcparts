@@ -130,7 +130,7 @@ def normalizeAttribute(key, value):
         value = attributes.chargeAtVoltage(value)
     else:
         value = attributes.stringAttribute(value)
-    assert(isinstance(value, dict))
+    assert isinstance(value, dict)
     return key, value
 
 def normalizeAttributeKey(key):
@@ -210,7 +210,10 @@ def extractComponent(component, schema):
                 url = component.get("extra", {}).get("url", None)
                 propertyList.append(url)
             elif schItem in component:
-                propertyList.append(component[schItem])
+                item = component[schItem]
+                if isinstance(item, str):
+                    item = item.strip()
+                propertyList.append(item)
             else:
                 propertyList.append(None)
         return propertyList
@@ -271,7 +274,7 @@ def buildtables(library, outdir):
                 stockTable = buildStocktable(lib.getCategoryComponents(catName, subcatName))
                 stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
 
-                assert(subcatName not in subcatIndex)
+                assert subcatName not in subcatIndex
                 subcatIndex[subcatName] = {
                     "sourcename": filebase,
                     "datahash": dataHash,
@@ -283,8 +286,3 @@ def buildtables(library, outdir):
         "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
     }
     saveJson(index, os.path.join(outdir, "index.json"), hash=True)
-
-
-
-
-

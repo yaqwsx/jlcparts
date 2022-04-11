@@ -15,7 +15,7 @@ def saveJson(object, filename, hash=False, pretty=False, compress=False):
         if pretty:
             json.dump(object, f, indent=4, sort_keys=True)
         else:
-            json.dump(object, f)
+            json.dump(object, f, separators=(',', ':'))
     if hash:
         with open(filename + ".sha256", "w") as f:
             hash = sha256file(filename)

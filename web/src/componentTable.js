@@ -68,6 +68,14 @@ export function formatAttribute(attribute) {
     });
 }
 
+export function restoreImagesUrls(images) {
+    let restoredUrls = [];
+    for (const [size, slug] of Object.entries(images)) {
+        restoredUrls.push(`https://assets.lcsc.com/images/lcsc/${size}x${size}/${slug}`);
+    }
+    return restoredUrls;
+}
+
 function valueFootprint(value) {
     return JSON.stringify(value);
 }
@@ -438,17 +446,17 @@ export class ComponentOverview extends React.Component {
                 displayGetter: x => {
                     var imgSrc = "./brokenimage.svg";
                     var zoomImgSrc = "./brokenimage.svg";
-                    if (x.images && x.images.length > 0) {
-                        let imgs = Array.from(Object.values(x.images[0]));
-                        imgSrc = imgs[0];
-                        zoomImgSrc = imgs[Math.min(1, imgs.length - 1)];
+                    let images = restoreImagesUrls(x.images);
+                    if (images?.length) {
+                        imgSrc = images[0];
+                        zoomImgSrc = images[images.length - 1];
                     }
                     return <ZoomableLazyImage
                         height={90}
                         width={90}
                         src={imgSrc}
-                        zoomWidth={350}
-                        zoomHeight={350}
+                        zoomWidth={450}
+                        zoomHeight={450}
                         zoomSrc={zoomImgSrc}/>
                 }
             },
@@ -589,9 +597,9 @@ export function findCategoryById(categories, id) {
 function ExpandedComponent(props) {
     let comp = props.component;
     var imgSrc = "./brokenimage.svg";
-    if (comp.images && comp.images.length > 0) {
-        let imgs = Array.from(Object.values(comp.images[0]));
-        imgSrc = imgs[Math.min(1, imgs.length - 1)];
+    let images = restoreImagesUrls(comp.images);
+    if (images?.length) {
+        imgSrc = images[Math.min(1, images.length - 1)];
     }
     let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">

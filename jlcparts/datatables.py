@@ -180,6 +180,15 @@ def pullExtraAttributes(component):
         "Status": status
     }
 
+def trimImageUrls(images):
+    trimmedUrls = {}
+    for res, url in images.items():
+        size = res.split("x")[0]
+        slug = url[url.rindex("/") + 1:]
+        assert f"https://assets.lcsc.com/images/lcsc/{size}x{size}/{slug}" == url
+        trimmedUrls[size] = slug
+    return trimmedUrls
+
 def extractComponent(component, schema):
     try:
         propertyList = []
@@ -205,7 +214,9 @@ def extractComponent(component, schema):
                 propertyList.append(attr)
             elif schItem == "images":
                 images = component.get("extra", {}).get("images", [])
-                propertyList.append(images)
+                if not images:
+                    images = [{}]
+                propertyList.append(trimImageUrls(images[0]))
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
                 propertyList.append(url)

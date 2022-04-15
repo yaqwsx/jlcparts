@@ -1,7 +1,8 @@
 import React from 'react';
 import { fetchJson, db } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
-         formatAttribute, findCategoryById, restoreImagesUrls } from './componentTable'
+         formatAttribute, findCategoryById, restoreImagesUrls,
+         restoreLcscUrl } from './componentTable'
 import { getQuantityPrice } from './jlc'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
@@ -47,7 +48,7 @@ class HistoryItem extends React.Component {
         let category = findCategoryById(this.props.categories, x.category);
         return <tr>
             <td className="text-left pl-2">
-                <a href={x.url}
+                <a href={restoreLcscUrl(x.url, x.lcsc)}
                     className="underline text-blue-600"
                     onClick={e => e.stopPropagation()}
                     target="_blank"

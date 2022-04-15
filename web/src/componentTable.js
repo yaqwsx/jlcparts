@@ -76,6 +76,10 @@ export function restoreImagesUrls(images) {
     return restoredUrls;
 }
 
+export function restoreLcscUrl(slug, lcsc) {
+    return `https://lcsc.com/product-detail/${slug}_${lcsc}.html`
+}
+
 function valueFootprint(value) {
     return JSON.stringify(value);
 }
@@ -422,7 +426,7 @@ export class ComponentOverview extends React.Component {
                                 <FontAwesomeIcon icon="clipboard"/>
                             </button>
                         </CopyToClipboard>
-                        <a href={x.url}
+                        <a href={restoreLcscUrl(x.url, x.lcsc)}
                             className="underline text-blue-600"
                             onClick={e => e.stopPropagation()}
                             target="_blank"

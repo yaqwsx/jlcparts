@@ -189,6 +189,13 @@ def trimImageUrls(images):
         trimmedUrls[size] = slug
     return trimmedUrls
 
+def trimLcscUrl(url, lcsc):
+    if url is None:
+        return None
+    slug = url[url.rindex("/") + 1 : url.rindex("_")]
+    assert f"https://lcsc.com/product-detail/{slug}_{lcsc}.html" == url
+    return slug
+
 def extractComponent(component, schema):
     try:
         propertyList = []
@@ -219,7 +226,7 @@ def extractComponent(component, schema):
                 propertyList.append(trimImageUrls(images[0]))
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
-                propertyList.append(url)
+                propertyList.append(trimLcscUrl(url, component["lcsc"]))
             elif schItem in component:
                 item = component[schItem]
                 if isinstance(item, str):

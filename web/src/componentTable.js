@@ -8,6 +8,7 @@ import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
 import { AttritionInfo, getQuantityPrice } from "./jlc"
+import { naturalCompare } from '@discoveryjs/natural-compare';
 
 enableMapSet();
 
@@ -37,7 +38,8 @@ function attributeComparator(x, y, valueType = undefined) {
     let comparator = quantityComparator(getQuantity(x.values[valueType]));
     return comparator(
         getValue(x.values[valueType]),
-        getValue(y.values[valueType]));
+        getValue(y.values[valueType])
+    );
 }
 
 function fullTextComponentsFilter(component, words) {
@@ -402,7 +404,7 @@ export class ComponentOverview extends React.Component {
                             <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
                     </a>
                 </>,
-                comparator: (a, b) => a.mfr.localeCompare(b.mfr),
+                comparator: (a, b) => naturalCompare(a.mfr, b.mfr),
                 className: "px-1 whitespace-no-wrap"
             },
             {
@@ -435,7 +437,7 @@ export class ComponentOverview extends React.Component {
                         </a>
                     </>
                 },
-                comparator: (a, b) => a.lcsc.localeCompare(b.lcsc)
+                comparator: (a, b) => naturalCompare(a.lcsc, b.lcsc)
             },
             {
                 name: "Basic/Extended",

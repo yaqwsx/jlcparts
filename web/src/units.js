@@ -1,3 +1,4 @@
+import { naturalCompare } from '@discoveryjs/natural-compare';
 
 // Return comparator for given quantity
 export function quantityComparator(quantityName) {
@@ -7,7 +8,7 @@ export function quantityComparator(quantityName) {
     ];
     if (numericQuantities.includes(quantityName))
         return numericComparator;
-    return (a, b) => String(a).localeCompare(String(b));
+    return naturalCompare;
 }
 
 // Return formatter for given quantity

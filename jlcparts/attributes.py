@@ -113,7 +113,7 @@ def readCharge(value):
     return readWithSiPrefix(value)
 
 def readFrequency(value):
-    value = value.replace("Hz", "").strip()
+    value = erase(value, ["Hz", "HZ"]).strip()
     return readWithSiPrefix(value)
 
 def readInductance(value):

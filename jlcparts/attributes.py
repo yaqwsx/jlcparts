@@ -264,7 +264,9 @@ def countAttribute(value):
 
 
 def capacitanceAttribute(value):
-    value = readCapacitance(value)
+    # There are a handful of components, that feature multiple capacitance
+    # values, for the sake of the simplicity, take the last one.
+    value = readCapacitance(value.split(";")[-1].strip())
     return {
         "format": "${capacitance}",
         "primary": "capacitance",

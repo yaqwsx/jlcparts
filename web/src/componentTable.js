@@ -13,28 +13,23 @@ import { naturalCompare } from '@discoveryjs/natural-compare';
 enableMapSet();
 
 function getValue(value) {
-    if (value === undefined)
-        return undefined;
-    return value[0];
+    return value?.[0];
 }
 
 function getQuantity(value) {
-    if (value === undefined)
-        return undefined;
-    return value[1];
+    return value?.[1];
 }
 
 // Compare two attributes based on given valueType. If no valueType is
 // specified, use primary attribute of x
-function attributeComparator(x, y, valueType = undefined) {
+function attributeComparator(x, y, valueType) {
     if (x === undefined && y === undefined)
         return 0;
     if (x === undefined)
         return 1;
     if (y === undefined)
         return -1;
-    if (valueType === undefined)
-        valueType = x.primary;
+    valueType ??= x.primary;
     let comparator = quantityComparator(getQuantity(x.values[valueType]));
     return comparator(
         getValue(x.values[valueType]),
@@ -82,7 +77,7 @@ export function Spinbox() {
         <svg className="animate-spin -ml-1 m-8 h-5 w-5 text-black mx-auto inline-block"
              xmlns="http://www.w3.org/2000/svg"
              fill="none" viewBox="0 0 24 24"
-             style={{"maxWidth": "100px", "maxHeight": "100px", "width": "100%", "height": "100%"}}>
+             style={{maxWidth: "100px", maxHeight: "100px", width: "100%", height: "100%"}}>
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -109,16 +104,16 @@ export class ZoomableLazyImage extends React.Component {
         }
     }
 
-    assignRef = (element) => {
+    assignRef = element => {
         this.container = element;
     }
 
     handleMouseEnter = () => {
-        this.setState({"hover": true});
+        this.setState({hover: true});
     }
 
     handleMouseLeave= () => {
-        this.setState({"hover": false});
+        this.setState({hover: false});
     }
 
     render() {
@@ -148,23 +143,23 @@ export class ComponentOverview extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            "components": [],
-            "categories": [],
-            "activeProperties": {},
-            "stockRequired": false,
-            "requiredProperties": new Set(),
-            "expectedComponentsVersion": 0,
-            "componentsVersion": 0,
-            "tableIncludedProperties": new Set(),
-            "quantity": 1
+            components: [],
+            categories: [],
+            activeProperties: {},
+            stockRequired: false,
+            requiredProperties: new Set(),
+            expectedComponentsVersion: 0,
+            componentsVersion: 0,
+            tableIncludedProperties: new Set(),
+            quantity: 1
         };
     }
 
     componentDidMount() {
         db.categories.toArray().then( categories => {
             this.setState({
-                "categories": this.prepareCategories(categories),
-                "rawCategories": categories
+                categories: this.prepareCategories(categories),
+                rawCategories: categories
             });
         })
     }
@@ -172,29 +167,23 @@ export class ComponentOverview extends React.Component {
     prepareCategories(sourceCategories) {
         let categories = {};
         for (const category of sourceCategories) {
-            if (categories[category.category] === undefined) {
-                categories[category.category] = [];
-            }
+            categories[category.category] ??= [];
             categories[category.category].push({
-                "value": category["subcategory"],
-                "key": category["id"]
+                value: category.subcategory,
+                key: category.id
             });
         }
 
         let sortedCategories = [];
         for (const key in categories) {
             let subCats = categories[key];
-            subCats.sort((a, b) => {
-                return a["value"].localeCompare(b["value"]);
-            });
+            subCats.sort((a, b) => a.value.localeCompare(b.value));
             sortedCategories.push({
-                "category": key,
-                "subcategories": subCats
+                category: key,
+                subcategories: subCats
             });
         }
-        sortedCategories.sort((a, b) => {
-            return a.category.localeCompare(b.category);
-        })
+        sortedCategories.sort((a, b) => a.category.localeCompare(b.category));
         return sortedCategories;
     }
 
@@ -203,11 +192,9 @@ export class ComponentOverview extends React.Component {
         for (const component of components) {
             if (!("attributes" in component))
                 continue;
-            let attributes = component["attributes"];
+            let attributes = component.attributes;
             for (const property in attributes) {
-                if (!(property in properties)) {
-                    properties[property] = {};
-                }
+                properties[property] ??= {};
                 let val = attributes[property];
                 properties[property][valueFootprint(val)] = val;
             }
@@ -217,24 +204,17 @@ export class ComponentOverview extends React.Component {
         for (const property in properties) {
             if (Object.keys(properties[property]).size <= 1)
                 continue;
-            let values = Object.entries(properties[property]).map(x => {
-                return {"key": x[0], "value": x[1]};
-            });
-            propertiesList.push({
-                "property": property,
-                "values": values
-            });
+            let values = Object.entries(properties[property]).map(x => ({key: x[0], value: x[1]}));
+            propertiesList.push({property, values});
         }
-        propertiesList.sort((a, b) => {
-            return a.property.localeCompare(b.property);
-        });
+        propertiesList.sort((a, b) => a.property.localeCompare(b.property));
         return propertiesList;
     }
 
     handleStartComponentsChange = () => {
         let newVersion = this.state.componentsVersion + 1;
         this.setState(produce(this.state, draft => {
-            draft["expectedComponentsVersion"] = newVersion;
+            draft.expectedComponentsVersion = newVersion;
         }));
         return newVersion;
     }
@@ -245,21 +225,21 @@ export class ComponentOverview extends React.Component {
         if (!components)
             return;
         this.setState(produce(this.state, draft => {
-            draft["componentsVersion"] = version;
-            draft["components"] = components;
+            draft.componentsVersion = version;
+            draft.components = components;
             // Update properties filters
             var t0 = performance.now();
             let properties = {};
             for (const propertyDic of this.collectProperties(components)) {
-                properties[propertyDic["property"]] = propertyDic["values"].map(x => x["key"]);
+                properties[propertyDic.property] = propertyDic.values.map(x => x.key);
             }
             for (const property of Object.keys(draft.activeProperties)) {
                 if (!(property in properties)) {
-                    delete draft["activeProperties"][property];
+                    delete draft.activeProperties[property];
                 }
             }
             for (const property in properties) {
-                draft["activeProperties"][property] = properties[property];
+                draft.activeProperties[property] = properties[property];
             }
             var t1 = performance.now();
             console.log("Active categories took ", t1 - t0, "ms" );
@@ -268,25 +248,25 @@ export class ComponentOverview extends React.Component {
 
     handleActivePropertiesChange = (property, values) => {
         this.setState(produce(this.state, draft => {
-            draft["activeProperties"][property] = values;
+            draft.activeProperties[property] = values;
         }));
     }
 
     handleIncludeInTable = (property, value) => {
         this.setState(produce(this.state, draft => {
             if (value)
-                draft["tableIncludedProperties"].add(property);
+                draft.tableIncludedProperties.add(property);
             else
-                draft["tableIncludedProperties"].delete(property);
+                draft.tableIncludedProperties.delete(property);
         }));
     }
 
     handlePropertyRequired = (property, value) => {
         this.setState(produce(this.state, draft => {
             if (value)
-                draft["requiredProperties"].add(property);
+                draft.requiredProperties.add(property);
             else
-                draft["requiredProperties"].delete(property);
+                draft.requiredProperties.delete(property);
         }));
     }
 
@@ -295,12 +275,12 @@ export class ComponentOverview extends React.Component {
             for (const property in activeProperties) {
                 if (this.state.stockRequired && component.stock < this.state.quantity)
                     return false;
-                let attributes = component["attributes"];
+                let attributes = component.attributes;
                 if (!(property in attributes)) {
                     if (requiredProperties.has(property))
                         return false;
                     else
-                        continue
+                        continue;
                 }
                 if (!(activeProperties[property].includes(valueFootprint(attributes[property]))))
                     return false;
@@ -373,8 +353,8 @@ export class ComponentOverview extends React.Component {
                 className: "px-1 whitespace-no-wrap text-center",
                 displayGetter: x => {
                     let discontinued = <></>;
-                    if (x.attributes["Status"]) {
-                        let flag = formatAttribute(x.attributes["Status"]);
+                    if (x.attributes.Status) {
+                        let flag = formatAttribute(x.attributes.Status);
                         if (flag === "Discontinued") {
                             discontinued = <FontAwesomeIcon icon="exclamation-triangle"
                                 color="red" className="mx-2"
@@ -435,8 +415,8 @@ export class ComponentOverview extends React.Component {
             {
                 name: "Manufacturer",
                 sortable: true,
-                displayGetter: x => formatAttribute(x.attributes["Manufacturer"]),
-                comparator: (a, b) => formatAttribute(a.attributes["Manufacturer"]).localeCompare(formatAttribute(b.attributes["Manufacturer"]))
+                displayGetter: x => formatAttribute(x.attributes.Manufacturer),
+                comparator: (a, b) => formatAttribute(a.attributes.Manufacturer).localeCompare(formatAttribute(b.attributes.Manufacturer))
             },
             {
                 name: "Stock",
@@ -640,7 +620,7 @@ class CategoryFilter extends React.Component {
             categories: {},
             allCategories: false,
             searchString: "",
-            abort: () => {}
+            abort: () => null
         }
     }
 
@@ -697,19 +677,19 @@ class CategoryFilter extends React.Component {
     handleCategoryChange = (category, value) => {
         console.log("Category change");
         this.setState(produce(this.state, draft => {
-            draft.categories[category] = value.map(n => { return parseInt(n)});
+            draft.categories[category] = value.map(n => parseInt(n));
             draft.allCategories = false;
         }), this.notifyParent);
     }
 
-    selectAll = (state) => {
+    selectAll = state => {
         for (let category of this.props.categories) {
             state.categories[category.category] = category.subcategories.map( x => x.key );
         }
         state.allCategories = true;
     }
 
-    selectNone = (state) => {
+    selectNone = state => {
         for (let key in state.categories) {
             state.categories[key] = [];
         }
@@ -724,7 +704,7 @@ class CategoryFilter extends React.Component {
         this.setState(produce(this.state, this.selectNone), this.notifyParent);
     }
 
-    handleFulltextChange = (e) => {
+    handleFulltextChange = e => {
         this.setState(produce(this.state, draft => {
             draft.searchString = e.target.value;
             if (!draft.allCategories && this.collectActiveCategories().length === 0)
@@ -735,7 +715,7 @@ class CategoryFilter extends React.Component {
         });
     }
 
-    handleClear = (e) => {
+    handleClear = () => {
         this.setState(produce(this.state, draft => {
             draft.searchString = "";
             if (draft.allCategories) {
@@ -791,12 +771,12 @@ class CategoryFilter extends React.Component {
                 {this.props.categories.map(item => {
                     return <MultiSelectBox
                         className="bg-blue-500"
-                        key={item["category"]}
-                        name={item["category"]}
-                        options={item["subcategories"]}
-                        value={this.state.categories[item["category"]]}
+                        key={item.category}
+                        name={item.category}
+                        options={item.subcategories}
+                        value={this.state.categories[item.category]}
                         onChange={value => {
-                            this.handleCategoryChange(item["category"], value); } }/>;
+                            this.handleCategoryChange(item.category, value); } }/>;
                 })}
             </div>
             <div className="w-full flex p-2">
@@ -816,20 +796,18 @@ class CategoryFilter extends React.Component {
 }
 
 class MultiSelectBox extends React.Component {
-    handleAllClick = (e) => {
+    handleAllClick = e => {
         e.preventDefault();
-        let values = this.props.options.map(option => {
-            return option["key"]
-        });
+        let values = this.props.options.map(option => option.key);
         this.props.onChange(values);
     }
 
-    handleNoneClick = (e) => {
+    handleNoneClick = e => {
         e.preventDefault();
         this.props.onChange([]);
     }
 
-    handleSelectChange = (e) => {
+    handleSelectChange = e => {
         e.preventDefault();
         let value = Array.from(e.target.selectedOptions, option => option.value);
         this.props.onChange(value);
@@ -840,7 +818,7 @@ class MultiSelectBox extends React.Component {
         if (this.props.minHeight)
             selectStyle.minHeight = this.props.minHeight;
         return <>
-            <div className={`rounded flex flex-col flex-1 p-1 m-1 ${this.props.className}`}  style={{"minWidth": "200px", "maxWidth": "400px"}}>
+            <div className={`rounded flex flex-col flex-1 p-1 m-1 ${this.props.className}`}  style={{minWidth: "200px", maxWidth: "400px"}}>
                 <div className="flex-none flex w-full">
                     <h5 className="block flex-1 font-bold cursor-default rounded px-1 truncate hover:whitespace-normal">{this.props.name}</h5>
                     <div className="flex-none">
@@ -852,8 +830,8 @@ class MultiSelectBox extends React.Component {
                         style={selectStyle}
                         value={this.props.value} onChange={this.handleSelectChange}>
                     {this.props.options.map(option => {
-                        return <option value={option["key"]} key={option["key"]} title={option["value"]}>
-                                    {option["value"]}
+                        return <option value={option.key} key={option.key} title={option.value}>
+                                    {option.value}
                             </option>;
                     })}
                 </select>
@@ -869,8 +847,8 @@ class SingleSelectBox extends React.Component {
     render() {
         return <select className={this.props.className} onChange={this.props.onChange}>
             {this.props.options.map(option => {
-                return <option value={option["key"]} key={option["key"]}>
-                            {option["value"]}
+                return <option value={option.key} key={option.key}>
+                            {option.value}
                     </option>;
             })}
         </select>
@@ -886,14 +864,7 @@ class PropertySelector extends React.Component {
     }
 
     collectValueTypes() {
-        return [...new Set(this.props.item.values.flatMap(x => {
-            return Object.keys(x.value.values);
-        }))].map(x => {
-            return {
-                key: x,
-                value: x
-            }
-        });
+        return [...new Set(this.props.item.values.flatMap(x => Object.keys(x.value.values)))].map(x => ({key: x, value: x}));
     }
 
     valueOptions() {
@@ -901,10 +872,10 @@ class PropertySelector extends React.Component {
         options.sort((a, b) => {
             return attributeComparator(a.value, b.value, this.state.sortBy);
         })
-        return options.map(x => { return {
+        return options.map(x => ({
             key: x.key,
             value: formatAttribute(x.value)
-        }; } );
+        }));
     }
 
     handleSortChange = e => {
@@ -971,7 +942,7 @@ class PropertySelect extends React.Component {
                  </p>
                 : this.props.properties.map(item => {
                     return <PropertySelector
-                        key={item["property"]}
+                        key={item.property}
                         className="bg-blue-500"
                         item={item}
                         value={this.props.values[item.property]}

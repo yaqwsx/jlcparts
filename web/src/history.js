@@ -19,14 +19,12 @@ class HistoryItem extends React.Component {
     }
 
     componentDidMount() {
-        db.components.get({"lcsc": this.props.lcsc}).then( component => {
-            this.setState({"info": component});
+        db.components.get({lcsc: this.props.lcsc}).then( component => {
+            this.setState({info: component});
         });
     }
 
     renderImage() {
-        var imgSrc = "./brokenimage.svg";
-        var zoomImgSrc = "./brokenimage.svg";
         let x = this.state.info;
         let images = restoreImagesUrls(x.images);
         if (images?.length) {
@@ -98,7 +96,7 @@ class HistoryItem extends React.Component {
     }
 
     render() {
-        if ("info" in this.state && this.state["info"] !== undefined)
+        if (this.state?.info !== undefined)
             return this.renderLoaded();
         if ("info" in this.state)
             return this.renderUnknown();
@@ -147,29 +145,27 @@ class HistoryTable extends React.Component {
     componentDidMount() {
         fetchJson(process.env.PUBLIC_URL + "/data/changelog.json")
             .then(response => {
-                let log = []
+                let log = [];
                 for (const day in response) {
                     log.push({
-                        "day": new Date(day),
-                        "components": response[day]
+                        day: new Date(day),
+                        components: response[day]
                     });
                 }
-                log.sort((a, b) => b["day"] - a["day"]);
-                this.setState({"table": log})
+                log.sort((a, b) => b.day - a.day);
+                this.setState({table: log});
             });
-        db.categories.toArray().then( categories => {
-            this.setState({"categories": categories})
-        });
+        db.categories.toArray().then( categories => this.setState({categories}) );
     }
 
     render() {
-        if (this.state["table"] === undefined) {
+        if (this.state.table === undefined) {
             return <Spinbox/>
         }
-        return this.state["table"].map(item => {
+        return this.state.table.map(item => {
             if (item.components.length === 0)
                 return <></>
-            let day = item.day
+            let day = item.day;
             return <div key={item.day}>
                 <h2 className="w-full text-lg font-bold mt-6">
                     Newly added components on {day.getDate()}. {day.getMonth() + 1}. {day.getFullYear()}:

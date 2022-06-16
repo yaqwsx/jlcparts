@@ -1,5 +1,5 @@
 import React from "react";
-import {InlineSpinbox} from "./componentTable.js"
+import { InlineSpinbox } from "./componentTable.js"
 import { CORS_KEY } from "./corsBridge.js";
 
 export function getQuantityPrice(quantity, pricelist) {
@@ -28,13 +28,13 @@ export class AttritionInfo extends React.Component {
                 "x-cors-grida-api-key": CORS_KEY
             },
             body: JSON.stringify({
-                "currentPage": 1,
-                "pageSize": 25,
-                "keyword": this.props.component.lcsc,
-                "firstSortName": "",
-                "secondeSortName": "",
-                "searchSource": "search",
-                "componentAttributes": []
+                currentPage: 1,
+                pageSize: 25,
+                keyword: this.props.component.lcsc,
+                firstSortName: "",
+                secondeSortName: "",
+                searchSource: "search",
+                componentAttributes: []
             })
         })
         .then(response => {
@@ -43,11 +43,11 @@ export class AttritionInfo extends React.Component {
             }
             return response.json();
         })
-        .then(responseJson => {
+        .then(({data}) => {
             let lcscId = null;
-            responseJson["data"]["componentPageInfo"]["list"].forEach(component => {
-                if (component["componentCode"] === this.props.component.lcsc)
-                    lcscId = component["componentId"];
+            data.componentPageInfo.list.forEach(({componentCode}) => {
+                if (componentCode === this.props.component.lcsc)
+                    lcscId = component.componentId;
             })
             if (lcscId === null) {
                 throw new Error(`No search results for ${this.props.component.lcsc}`);
@@ -64,8 +64,8 @@ export class AttritionInfo extends React.Component {
             }
             return response.json();
         })
-        .then(responseJson => {
-            this.setState({data: responseJson.data});
+        .then(({data}) => {
+            this.setState({data});
         })
         .catch(error => {
             this.setState({error: true, errorMessage: error.toString()});

@@ -27,16 +27,14 @@ class HistoryItem extends React.Component {
     renderImage() {
         let x = this.state.info;
         let images = restoreImagesUrls(x.images);
-        if (images?.length) {
-            imgSrc = zoomImgSrc = images[0];
-        }
+        let imgSrc = (images?.length) ? images[0] : "./brokenimage.svg";
         return <ZoomableLazyImage
             height={90}
             width={90}
             src={imgSrc}
             zoomWidth={350}
             zoomHeight={350}
-            zoomSrc={zoomImgSrc}/>
+            zoomSrc={imgSrc}/>
     }
 
     renderLoaded() {

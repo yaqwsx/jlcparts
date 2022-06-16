@@ -75,10 +75,7 @@ export class SortableTable extends React.Component {
     }
 
     getComparator = columnName => {
-        for (var obj of this.props.header) {
-            if (obj.name === columnName)
-                return obj.comparator;
-        }
+        return this.props.header.find(obj => obj.name === columnName)?.comparator;
     }
 
     getPropAsString = propName => {

@@ -3,13 +3,9 @@ import { InlineSpinbox } from "./componentTable.js"
 import { CORS_KEY } from "./corsBridge.js";
 
 export function getQuantityPrice(quantity, pricelist) {
-    for (let pricepoint of pricelist) {
-        if (quantity >= pricepoint.qFrom && (quantity <= pricepoint.qTo || !pricepoint.qTo))
-            return pricepoint.price;
-    }
-    if (pricelist[0])
-        return pricelist[0].price;
-    return undefined;
+    return pricelist.find(pricepoint =>
+        quantity >= pricepoint.qFrom && (quantity <= pricepoint.qTo || !pricepoint.qTo)
+    )?.price ?? pricelist[0]?.price;
 }
 
 export class AttritionInfo extends React.Component {
@@ -44,12 +40,8 @@ export class AttritionInfo extends React.Component {
             return response.json();
         })
         .then(({data}) => {
-            let lcscId = null;
-            data.componentPageInfo.list.forEach(({componentCode}) => {
-                if (componentCode === this.props.component.lcsc)
-                    lcscId = component.componentId;
-            })
-            if (lcscId === null) {
+            const lcscId = data.componentPageInfo.list.find(({componentCode}) => componentCode === this.props.component.lcsc)?.componentId;
+            if (lcscId === undefined) {
                 throw new Error(`No search results for ${this.props.component.lcsc}`);
             }
             return fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentLcscId=" + lcscId, {

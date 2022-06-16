@@ -74,7 +74,7 @@ export class SortableTable extends React.Component {
         }
     }
 
-    getComparator = (columnName) => {
+    getComparator = columnName => {
         for (var obj of this.props.header) {
             if (obj.name === columnName)
                 return obj.comparator;
@@ -82,9 +82,7 @@ export class SortableTable extends React.Component {
     }
 
     getPropAsString = propName => {
-        if (this.props[propName])
-            return this.props[propName];
-        return "";
+        return this.props?.[propName] ?? "";
     }
 
     rowClassName = () => { return this.getPropAsString("rowClassName"); }
@@ -182,7 +180,7 @@ class ExpandableTableRow extends React.Component {
 
     render() {
         let expandableContent = <></>
-        let className = this.props.className ? this.props.className : "";
+        let className = this.props.className ?? "";
         if (this.state.expanded && this.props.expandableContent) {
             expandableContent = <tr>
                     <td colSpan={this.props.children.length}>

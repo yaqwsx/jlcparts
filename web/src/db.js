@@ -7,8 +7,7 @@ if (!window.indexedDB) {
 }
 
 async function persist() {
-return await navigator.storage && navigator.storage.persist &&
-    navigator.storage.persist();
+return await navigator.storage?.persist?.();
 }
 
 export const db = new Dexie('jlcparts');
@@ -19,7 +18,7 @@ db.version(1).stores({
 });
 
 function extractCategoryKey(category) {
-    return category["id"];
+    return category.id;
 }
 
 const SOURCE_PATH = "data";
@@ -50,8 +49,8 @@ export async function updateComponentLibrary(report) {
         },
         // onUpdateExisting
         async (category, attr) => {
-            let cName = category["category"];
-            let sName = category["subcategory"];
+            let cName = category.category;
+            let sName = category.subcategory;
             let name = cName + ": " + sName;
             updateProgress(name, ["Updating components 1/2", false]);
             await deleteCategory(category);
@@ -63,8 +62,8 @@ export async function updateComponentLibrary(report) {
         },
         // onUpdateStock
         async (category, _) => {
-            let cName = category["category"];
-            let sName = category["subcategory"];
+            let cName = category.category;
+            let sName = category.subcategory;
             let name = cName + ": " + sName;
             updateProgress(name, ["Updating stock 1/1", false]);
             await updateStock(category);
@@ -72,9 +71,9 @@ export async function updateComponentLibrary(report) {
             return category;
         },
         // onExcessive
-        async (category) => {
-            let cName = category["category"];
-            let sName = category["subcategory"];
+        async category => {
+            let cName = category.category;
+            let sName = category.subcategory;
             let name = cName + ": " + sName;
             updateProgress(name, ["Removing category", false]);
             await deleteCategory(category);
@@ -147,15 +146,15 @@ async function updateCategories(categoryIndex, onNew, onUpdateExisting, onUpdate
     for (const [categoryName, subcategories] of Object.entries(categoryIndex)) {
         for ( const [subcategoryName, attributes] of Object.entries(subcategories)) {
             let action = db.categories
-                .where({"category": categoryName, "subcategory": subcategoryName})
+                .where({category: categoryName, subcategory: subcategoryName})
                 .first(async category => {
                     if (category === undefined) {
                         category = await onNew(categoryName, subcategoryName, attributes);
-                    } else if (attributes["datahash"] !== category["datahash"] ||
-                               attributes["sourcename"] !== category["sourcename"])
+                    } else if (attributes.datahash !== category.datahash ||
+                               attributes.sourcename !== category.sourcename)
                     {
                         category = await onUpdateExisting(category, attributes);
-                    } else if (attributes["stockhash"] !== category["stockhash"]) {
+                    } else if (attributes.stockhash !== category.stockhash) {
                         category = await onUpdateStock(category);
                     }
 
@@ -185,10 +184,10 @@ function restoreObject(schema, source) {
 // Takes a JSON fetched from server and adds them to the database for the
 // corresponding category
 async function addComponents(category, components) {
-    let schema = components["schema"];
-    let cObjects = components["components"].map(src => {
+    let schema = components.schema;
+    let cObjects = components.components.map(src => {
         let obj = restoreObject(schema, src);
-        obj["category"] = extractCategoryKey(category);
+        obj.category = extractCategoryKey(category);
         return obj;
     });
     await db.components.bulkPut(cObjects);
@@ -196,27 +195,26 @@ async function addComponents(category, components) {
 
 // Add a single category and fetch all of its components
 async function addCategory(categoryName, subcategoryName, attributes) {
-    let components = await fetchJson(`${SOURCE_PATH}/${attributes["sourcename"]}.json.gz`,
+    let components = await fetchJson(`${SOURCE_PATH}/${attributes.sourcename}.json.gz`,
         `Cannot fetch components for category ${categoryName}: ${subcategoryName}: `);
-    let c = await db.transaction("rw", db.categories, db.components, async () => {
+    return db.transaction("rw", db.categories, db.components, async () => {
         let key = await db.categories.put({
-            "category": categoryName,
-            "subcategory": subcategoryName,
-            "sourcename": attributes["sourcename"],
-            "datahash": attributes["datahash"],
-            "stockhash": attributes["stockhash"]
+            category: categoryName,
+            subcategory: subcategoryName,
+            sourcename: attributes.sourcename,
+            datahash: attributes.datahash,
+            stockhash: attributes.stockhash
         });
         let category = await db.categories.get(key);
         await addComponents(category, components);
         return category;
     });
-    return c;
 }
 
 // Fetch and update stock
 async function updateStock(category) {
-    let stock = await fetchJson(`${SOURCE_PATH}/${category["sourcename"]}.stock.json`,
-        `Cannot fetch stock for category ${category["category"]}: ${category["subcategory"]}: `);
+    let stock = await fetchJson(`${SOURCE_PATH}/${category.sourcename}.stock.json`,
+        `Cannot fetch stock for category ${category.category}: ${category.subcategory}: `);
     await db.components.where({category: category.id}).modify(component =>{
         component.stock = stock[component.lcsc];
     });
@@ -227,37 +225,37 @@ async function updateStock(category) {
     //     }
     //     await Promise.all(actions);
     // });
-    let hash = await fetchText(`${SOURCE_PATH}/${category["sourcename"]}.stock.json.sha256`,
-        `Cannot fetch stock hash for category ${category["category"]}: ${category["subcategory"]}: `);
-    await db.categories.update(extractCategoryKey(category), {"stockhash": hash});
+    let hash = await fetchText(`${SOURCE_PATH}/${category.sourcename}.stock.json.sha256`,
+        `Cannot fetch stock hash for category ${category.category}: ${category.subcategory}: `);
+    await db.categories.update(extractCategoryKey(category), {stockhash: hash});
 }
 
 // Delete given category and all of its components
 async function deleteCategory(category) {
     await db.transaction("rw", db.components, db.categories, async () => {
-        await db.components.where({"category": extractCategoryKey(category)}).delete();
+        await db.components.where({category: extractCategoryKey(category)}).delete();
         await db.categories.delete(extractCategoryKey(category));
     });
 }
 
 
 // See https://stackoverflow.com/questions/64114482/aborting-dexie-js-query
-export function cancellableDexieQuery(includedTables, querierFunction) {
-    let tx = null;
-    let cancelled = false;
-    const promise = db.transaction('r', includedTables, () => {
-        if (cancelled)
-            throw new Dexie.AbortError('Query was cancelled');
-        tx = Dexie.currentTransaction;
-        return querierFunction();
-    });
-    return [
-        promise,
-        () => {
-            cancelled = true; // In case transaction hasn't been started yet.
-            if (tx)
-                tx.abort(); // If started, abort it.
-            tx = null; // Avoid calling abort twice.
-        }
-    ];
-}
+// export function cancellableDexieQuery(includedTables, querierFunction) {
+//     let tx = null;
+//     let cancelled = false;
+//     const promise = db.transaction('r', includedTables, () => {
+//         if (cancelled)
+//             throw new Dexie.AbortError('Query was cancelled');
+//         tx = Dexie.currentTransaction;
+//         return querierFunction();
+//     });
+//     return [
+//         promise,
+//         () => {
+//             cancelled = true; // In case transaction hasn't been started yet.
+//             if (tx)
+//                 tx.abort(); // If started, abort it.
+//             tx = null; // Avoid calling abort twice.
+//         }
+//     ];
+// }

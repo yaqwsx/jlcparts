@@ -45,7 +45,7 @@ function Header(props) {
               GitHub Sponsors:
             </td>
             <td>
-              <iframe src="https://github.com/sponsors/yaqwsx/button" title="Sponsor yaqwsx" height="35" width="116" style={{"border": 0}} className="inline-block"></iframe>
+              <iframe src="https://github.com/sponsors/yaqwsx/button" title="Sponsor yaqwsx" height="35" width="116" style={{border: 0}} className="inline-block"></iframe>
             </td>
           </tr>
           <tr>
@@ -65,7 +65,7 @@ function Header(props) {
 }
 
 function Footer(props) {
-  return <div className="w-full p-2 border-t-2 border-gray-800" style={{"minHeight": "200px"}}>
+  return <div className="w-full p-2 border-t-2 border-gray-800" style={{minHeight: "200px"}}>
 
   </div>
 }
@@ -74,13 +74,13 @@ class FirstTimeNote extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      "componentCount": undefined
+      componentCount: undefined
     };
   }
 
   componentDidMount() {
     db.components.count().then(x => {
-      this.setState({"componentCount": x});
+      this.setState({componentCount: x});
     })
   }
 
@@ -132,17 +132,17 @@ class UpdateBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      "updateAvailable": this.props.updateAvailable
+      updateAvailable: this.props.updateAvailable
     };
   }
 
   componentDidMount() {
     let checkStatus = () => {
       checkForComponentLibraryUpdate().then( updateAvailable => {
-        this.setState({"updateAvailable": updateAvailable});
+        this.setState({updateAvailable});
       });
-      db.settings.get("lastUpdate").then(x => {
-        this.setState({"lastUpdate": x});
+      db.settings.get("lastUpdate").then(lastUpdate => {
+        this.setState({lastUpdate});
       })
     };
 
@@ -154,7 +154,7 @@ class UpdateBar extends React.Component {
     clearInterval(this.timerID);
   }
 
-  handleUpdateClick = (e) => {
+  handleUpdateClick = e => {
     e.preventDefault();
     this.props.onTriggerUpdate();
   }
@@ -181,14 +181,14 @@ class Updater extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      "progress": {}
+      progress: {}
     };
   }
 
   componentDidMount() {
     let t0 = performance.now();
     updateComponentLibrary(
-      (progress) => { this.setState({"progress": progress}); }
+      progress => { this.setState({progress}); }
     ).then(() => {
       let t1 = performance.now();
       console.log("Library update took ", t1 - t0, "ms");
@@ -230,7 +230,7 @@ function Container(props) {
   return <div className="container mx-auto px-2">{props.children}</div>
 }
 
-function Navbar(props) {
+function Navbar() {
   return <div className="w-ful text-lg">
     <NavLink to="/" exact={true}
       className="inline-block p-4 bg-white"
@@ -253,16 +253,16 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      "updating": false
+      updating: false
     };
   }
 
   onUpdateFinish = () => {
-    this.setState({"updating": false});
+    this.setState({updating: false});
   }
 
   triggerUpdate = () => {
-    this.setState({"updating": true});
+    this.setState({updating: true});
   }
 
   render() {

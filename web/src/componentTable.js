@@ -57,11 +57,8 @@ export function formatAttribute(attribute) {
 }
 
 export function restoreImagesUrls(images) {
-    let restoredUrls = [];
-    for (const [size, slug] of Object.entries(images)) {
-        restoredUrls.push(`https://assets.lcsc.com/images/lcsc/${size}x${size}/${slug}`);
-    }
-    return restoredUrls;
+    return Object.entries(images).map(([size, slug]) =>
+        `https://assets.lcsc.com/images/lcsc/${size}x${size}/${slug}`);
 }
 
 export function restoreLcscUrl(slug, lcsc) {
@@ -202,7 +199,7 @@ export class ComponentOverview extends React.Component {
 
         let propertiesList = [];
         for (const property in properties) {
-            if (Object.keys(properties[property]).size <= 1)
+            if (Object.keys(properties[property]).length <= 1)
                 continue;
             let values = Object.entries(properties[property]).map(x => ({key: x[0], value: x[1]}));
             propertiesList.push({property, values});
@@ -530,11 +527,7 @@ export class ComponentOverview extends React.Component {
 }
 
 export function findCategoryById(categories, id) {
-    for (let category of categories) {
-        if (category.id === id )
-            return category;
-    }
-    return {
+    return categories.find(category => category.id === id) ?? {
         category: "unknown",
         subcategory: "unknown"
     }
@@ -625,11 +618,7 @@ class CategoryFilter extends React.Component {
     }
 
     collectActiveCategories = () => {
-        let categories = [];
-        for (const key in this.state.categories) {
-            categories = categories.concat(this.state.categories[key]);
-        }
-        return categories;
+        return Object.values(this.state.categories).flat();
     }
 
     notifyParent = () => {

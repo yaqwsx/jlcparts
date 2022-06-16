@@ -166,13 +166,12 @@ async function updateCategories(categoryIndex, onNew, onUpdateExisting, onUpdate
         }
     }
     await Promise.all(updates);
-    const all = await db.categories.toArray();
-    await Promise.all(all.map(async category => {
+    await db.categories.each(category => {
         if (usedCategories.has(extractCategoryKey(category))) {
             return;
         }
         onExcessive(category);
-    }));
+    });
 }
 
 // Takes an array containing schema and an array of values and turns them into

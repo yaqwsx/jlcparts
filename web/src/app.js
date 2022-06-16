@@ -110,7 +110,7 @@ class NewComponentFormatWarning extends React.Component {
   }
 
   componentDidMount() {
-    db.components.limit(1).first().then(x => {
+    db.components.toCollection().first().then(x => {
       if (x !== undefined && typeof x.attributes[Object.keys(x.attributes)[0]] !== 'object')
         this.setState({newComponentFormat: false});
     });

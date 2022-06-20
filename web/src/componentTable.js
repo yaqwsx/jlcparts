@@ -623,6 +623,7 @@ class CategoryFilter extends React.Component {
 
     notifyParent = () => {
         var t0 = performance.now();
+        console.log("Select start");
         let version = this.props.onAnnounceChange();
         this.components().then(components => {
             var t1 = performance.now();

@@ -94,6 +94,8 @@ def readPower(value):
     """
     Parse power value (in watts), it can also handle fractions
     """
+    if ";" in value:
+        return readPower(value.split(";")[0])
     if "/" in value:
         # Fraction
         matches = re.match(r"(\d+)/(\d+)(.*)", value)

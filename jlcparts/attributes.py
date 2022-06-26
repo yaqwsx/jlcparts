@@ -844,6 +844,8 @@ def chargeAtVoltage(value):
         q = readCharge(q.strip())
         if "/" in v:
             v = v.split("/")[-1]
+        if "~" in v:
+            v = v.split("~")[-1]
         v = readVoltage(re.sub(r'-?\d+~', '', v.strip()))
         return q, v
 

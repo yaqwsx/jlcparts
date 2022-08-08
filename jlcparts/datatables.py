@@ -276,8 +276,15 @@ def buildtables(library, outdir):
         currentIdx = 0
         total = lib.countCategories()
         for catName, subcats in lib.categories().items():
+            # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
+            # components.
+            if catName.strip() == "":
+                continue
             subcatIndex = {}
             for subcatName in subcats:
+                # The same...
+                if subcatName.strip() == "":
+                    continue
                 currentIdx += 1
                 print(f"{((currentIdx) / total * 100):.2f} % {catName}: {subcatName}")
                 filebase = catName + subcatName

@@ -671,7 +671,7 @@ def voltageRange(value):
         }
     value = re.sub(r"\(.*?\)", "", value)
     value = value.replace("A", "V") # Common typo
-    value = value.split(",")[0] # In the case of multivalue range
+    value = value.split(",")[0].split(";")[0] # In the case of multivalue range
     if ".." in value:
         s = value.split("..")
     elif "-" in value:
@@ -710,7 +710,7 @@ def clampingVoltage(value):
         }
     value = re.sub(r"\(.*?\)", "", value)
     s = value.split("@")
-    vC = s[0].split(",")[0].split("/")[0]
+    vC = s[0].split(",")[0].split("/")[0].split(";")[0]
     vC = vC.replace("A", "V") # Common typo
     vC = readVoltage(vC)
     if len(s) == 2:

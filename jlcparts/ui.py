@@ -23,7 +23,7 @@ def getLibrary(source, db, age, limit):
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
     provided by JLC PCB).
 
-    Cou can specify previously downloaded library as a cache to save requests to
+    You can specify previously downloaded library as a cache to save requests to
     fetch LCSC extra data.
     """
     OLD = 0

@@ -263,7 +263,9 @@ def clearDir(directory):
 @click.command()
 @click.argument("library", type=click.Path(dir_okay=False))
 @click.argument("outdir", type=click.Path(file_okay=False))
-def buildtables(library, outdir):
+@click.option("--ignoreoldstock", type=int, default=None,
+    help="Ignore components that weren't on stock for more than n days")
+def buildtables(library, outdir, ignoreoldstock):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
@@ -291,12 +293,14 @@ def buildtables(library, outdir):
                 filebase = filebase.replace("&", "and").replace("/", "aka")
                 filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
 
-                dataTable = buildDatatable(lib.getCategoryComponents(catName, subcatName))
+                components = lib.getCategoryComponents(catName, subcatName, stockNewerThan=ignoreoldstock)
+
+                dataTable = buildDatatable(components)
                 dataTable.update({"category": catName, "subcategory": subcatName})
                 dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gz"),
                                     hash=True, compress=True)
 
-                stockTable = buildStocktable(lib.getCategoryComponents(catName, subcatName))
+                stockTable = buildStocktable(components)
                 stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
 
                 assert subcatName not in subcatIndex

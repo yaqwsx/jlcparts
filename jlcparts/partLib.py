@@ -62,6 +62,15 @@ class PartLibraryDb:
                 extra TEXT,
                 flag INTEGER NOT NULL DEFAULT 0
             )""")
+
+        # Perform migration if we miss last on stock
+        columns = self.conn.execute("pragma table_info(components)")
+        if "last_on_stock" not in [x[1] for x in columns]:
+            self.conn.execute("""
+                ALTER TABLE components ADD COLUMN last_on_stock INTEGER NOT NULL DEFAULT 0;
+            """)
+            self.conn.execute("DROP VIEW v_components")
+
         self.conn.execute("""
             CREATE INDEX IF NOT EXISTS components_category
             ON components (category_id)
@@ -98,6 +107,7 @@ class PartLibraryDb:
                     c.description AS description,
                     c.datasheet AS datasheet,
                     c.stock AS stock,
+                    c.last_on_stock as last_on_stock,
                     c.price AS price,
                     c.extra AS extra
                 FROM components c
@@ -108,7 +118,7 @@ class PartLibraryDb:
 
     def _commit(self):
         """
-        Commits automatically if no transation is opened
+        Commits automatically if no transaction is opened
         """
         if not self.transation:
             self.conn.commit()
@@ -186,14 +196,20 @@ class PartLibraryDb:
         self.categoryCache[c] = catId
         return catId
 
-    def getCategoryComponents(self, category, subcategory):
+    def getCategoryComponents(self, category, subcategory, stockNewerThan=None):
         """
-        Return an iterable of category components
+        Return an iterable of category components that have been in stock in the
+        last stockNewerThan
         """
         catId = self.getCategoryId(category, subcategory)
-        result = self.conn.cursor().execute("""
-            SELECT * FROM v_components WHERE category_id = ?
-            """, (catId,))
+        if stockNewerThan is None:
+            result = self.conn.cursor().execute("""
+                SELECT * FROM v_components WHERE category_id = ?
+                """, (catId,))
+        else:
+            result = self.conn.cursor().execute("""
+                SELECT * FROM v_components WHERE category_id = ? and last_on_stock > ?
+                """, (catId, int(time.time()) - stockNewerThan * 24 * 3600))
         return map(dbToComp, result)
 
 
@@ -244,16 +260,20 @@ class PartLibraryDb:
         Return if the update was successful or not
         """
         c = component
+        stock = int(c["stock"])
+
         data = [c["mfr"],
                 c["package"],
                 c["joints"],
                 c["basic"],
                 c["description"],
                 c["datasheet"],
-                c["stock"],
+                stock,
                 json.dumps(c["price"])]
         if flag is not None:
             data.append(flag)
+        if stock != 0:
+            data.append(int(time.time()))
         data.append(lcscToDb(c["lcsc"]))
 
         cursor = self.conn.cursor()
@@ -268,6 +288,7 @@ class PartLibraryDb:
                 stock = ?,
                 price = ?
                 {', flag = ?' if flag is not None else ''}
+                {', last_on_stock = ?' if stock != 0 else ''}
             WHERE lcsc = ?
             """, data)
         self._commit()

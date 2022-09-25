@@ -82,7 +82,7 @@ def readCurrent(value):
     value = value.replace("A", "").strip()
     value = value.split("..")[-1] # Some transistors give a range for current in Rds
     if value in ["-", "--"] or "null" in value:
-        return math.nan
+        return "NaN"
     return readWithSiPrefix(value)
 
 def readVoltage(value):
@@ -90,7 +90,7 @@ def readVoltage(value):
     value = value.replace("V-", "V")
     value = value.replace("V", "").strip()
     if value in ["-", "--"] or "null" in value:
-        return math.nan
+        return "NaN"
     return readWithSiPrefix(value)
 
 def readPower(value):

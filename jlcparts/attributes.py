@@ -1,5 +1,6 @@
 import re
 import sys
+import math
 
 # This module tries to parse LSCS attribute strings into structured data The
 # whole process is messy and there is no strong guarantee it will work in all
@@ -80,6 +81,8 @@ def readCurrent(value):
     value = erase(value, ["PNP"])
     value = value.replace("A", "").strip()
     value = value.split("..")[-1] # Some transistors give a range for current in Rds
+    if value in ["-", "--"] or "null" in value:
+        return math.nan
     return readWithSiPrefix(value)
 
 def readVoltage(value):
@@ -87,7 +90,7 @@ def readVoltage(value):
     value = value.replace("V-", "V")
     value = value.replace("V", "").strip()
     if value in ["-", "--"] or "null" in value:
-        return "NaN"
+        return math.nan
     return readWithSiPrefix(value)
 
 def readPower(value):

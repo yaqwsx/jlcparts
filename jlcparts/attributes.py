@@ -111,6 +111,8 @@ def readPower(value):
 
 def readCapacitance(value):
     value = value.replace("F", "").strip()
+    if value in ["-", "--"] or "null" in value:
+        return "NaN"
     return readWithSiPrefix(value)
 
 def readCharge(value):

@@ -97,6 +97,8 @@ def readPower(value):
     """
     Parse power value (in watts), it can also handle fractions
     """
+    if value in ["-", "--"] or "null" in value:
+        return "NaN"
     if ";" in value:
         return readPower(value.split(";")[0])
     if "/" in value:

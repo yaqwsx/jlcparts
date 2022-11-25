@@ -362,6 +362,9 @@ def rdsOnMaxAtVgsAtIds(value):
         matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
         if matched is None:
             matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
+        if matched is None:
+            # Sometimes, there is just resistance
+            matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v + ", -, -")
         resistance = matched.group(1).strip()
         voltage = matched.group(2).strip()
         current = matched.group(3).strip()

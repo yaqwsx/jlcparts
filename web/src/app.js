@@ -245,6 +245,30 @@ function Navbar() {
   </div>
 }
 
+function ShutDownNotice() {
+  return <div className="w-full p-8 my-2 bg-red-400 border-4 border-red-900 rounded">
+    <h2 className="text-xl text-bold">
+      The component database is out of date as JLC PCB refuses to provide data.
+    </h2>
+    <p>
+      Unfortunately, JLC PCB decided that they no longer provides the list of components they offer for assembly.
+      Even after reaching out to them they haven't reconsidered the decision. Therefore, I can
+      only provide a snapshot of component offer as it was on 25th November 2022.
+    </p>
+    <p>
+      Note that this decision didn't shutdown only this project, but also many others.
+      I tried to negotiate with them,
+      however, they weren't open to any discussion and thus, I am not able to provide this service.
+      I am sorry about that. If you want to make
+      something about that, please, don't write me, <a className="underline text-blue-500 hover:text-blue-800" href="mailto:support@jlcpcb.com?subject=Interest%20in%20support%203rd%20party%20tools%20for%20your%20PCBA%20service&body=Hello%2C%0D%0AI%20want%20to%20let%20you%20know%20that%20I%20am%20disappointed%20by%20your%20recent%20decision%20not%20to%20provide%20data%20to%203rd%20party%20tools%20that%20made%20using%20your%20PCBA%20services%20more%20pleasant.%0D%0A%0D%0APlease%2C%20reconsider%20your%20decision%20and%20start%20negotiating%20with%20the%20tool%20developers.%0D%0A%0D%0ASincerely%2C%0D%0AYour%20customer">write them</a>, mention this situation on social media. I already did
+      my best.
+    </p>
+    <p>
+      If you want to learn more about what happened, you can read the <a className="underline text-blue-500 hover:text-blue-800" href="https://blog.honzamrazek.cz/2022/12/jlcparts-falling-down-to-ashes/">related blog post.</a>
+    </p>
+  </div>;
+}
+
 export function NoMatch() {
   return <p>404 not found</p>;
 }
@@ -277,6 +301,7 @@ class App extends React.Component {
           <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
           <Header/>
           <FirstTimeNote/>
+          <ShutDownNotice/>
           <NewComponentFormatWarning/>
           <Navbar/>
               <Switch>

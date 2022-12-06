@@ -2,8 +2,9 @@ name: "Update component database"
 on:
   push:
   pull_request:
-  schedule:
-    - cron: '0 3 * * *'
+  # Do not automatically build the site as JLC PCB doesn't allows us to do.
+  # schedule:
+  #   - cron: '0 3 * * *'
 jobs:
   build_and_update:
     name: "Update component database and frontend"
@@ -46,14 +47,15 @@ jobs:
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.z03 || true
           7z x cache.zip
 
-          wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
-               -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
-          iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
+          # Don't update until JLC PCB is open to this again
+          # wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
+          #      -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
+          # iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
 
-          jlcparts getlibrary --age 10000 \
-                              --limit 50000 \
-                              partsUtf8.csv cache.sqlite3
-          jlcparts buildtables --ignoreoldstock 60 \
+          # jlcparts getlibrary --age 10000 \
+          #                     --limit 50000 \
+          #                     partsUtf8.csv cache.sqlite3
+          jlcparts buildtables --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data
 
           rm -f web/build/data/cache.z*

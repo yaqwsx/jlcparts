@@ -2,9 +2,8 @@ name: "Update component database"
 on:
   push:
   pull_request:
-  # Do not automatically build the site as JLC PCB doesn't allows us to do.
-  # schedule:
-  #   - cron: '0 3 * * *'
+  schedule:
+    - cron: '0 3 * * *'
 jobs:
   build_and_update:
     name: "Update component database and frontend"
@@ -12,7 +11,7 @@ jobs:
     environment: github-pages
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -37,6 +36,8 @@ jobs:
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}
           LCSC_SECRET: ${{ secrets.LCSC_SECRET }}
+          JLCPCB_KEY: ${{ secrets.JLCPCB_KEY }}
+          JLCPCB_SECRET: ${{ secrets.JLCPCB_SECRET }}
         run: |
           set -x
           sudo pip3 install -e .
@@ -47,14 +48,11 @@ jobs:
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.z03 || true
           7z x cache.zip
 
-          # Don't update until JLC PCB is open to this again
-          # wget --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36" \
-          #      -q -O parts.csv https://jlcpcb.com/componentSearch/uploadComponentInfo
-          # iconv -f GB18030// -t UTF-8//TRANSLIT parts.csv -o partsUtf8.csv
+          jlcparts fetchtable parts.csv
 
-          # jlcparts getlibrary --age 10000 \
-          #                     --limit 50000 \
-          #                     partsUtf8.csv cache.sqlite3
+          jlcparts getlibrary --age 10000 \
+                              --limit 50000 \
+                              parts.csv cache.sqlite3
           jlcparts buildtables --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data
 
@@ -63,10 +61,16 @@ jobs:
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: web_build
           path: web_build.tar.gz
+          retention-days: 14
+      - name: Upload table
+        uses: actions/upload-artifact@v3
+        with:
+          name: component_table
+          path: parts.csv
           retention-days: 14
   deploy:
     name: "Deploy"

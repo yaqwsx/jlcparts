@@ -29,6 +29,6 @@ def makeLcscRequest(url, payload=None):
     return requests.get(url, params=newPayload)
 
 if __name__ == "__main__":
-    r = makeLcscRequest("https://wwwapi.lcsc.com/v1/agents/products/info/C7063")
+    r = makeLcscRequest("https://ips.lcsc.com/rest/wmsc2agent/product/info/C7063")
     print(r.json())
 

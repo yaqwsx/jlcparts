@@ -100,6 +100,22 @@ def fetchDetails(lcsc_code):
     """
     print(getLcscExtraNew(lcsc_code))
 
+@click.command()
+@click.argument("filename", type=click.Path(writable=True))
+@click.option("--verbose", is_flag=True,
+    help="Be verbose")
+def fetchTable(filename, verbose):
+    """
+    Fetch JLC PCB component table
+    """
+    from .jlcpcb import pullComponentTable
+
+    def report(count: int) -> None:
+        if (verbose):
+            print(f"Fetched {count}")
+
+    pullComponentTable(filename, report)
+
 
 @click.group()
 def cli():
@@ -110,6 +126,7 @@ cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
 cli.add_command(fetchDetails)
+cli.add_command(fetchTable)
 
 if __name__ == "__main__":
     cli()

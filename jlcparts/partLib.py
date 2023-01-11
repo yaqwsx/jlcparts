@@ -459,12 +459,12 @@ def getLcscExtraNew(lcscNumber, retries=10):
             res = None
             resJson = None
             try:
-                res = makeLcscRequest(f"https://wwwapi.lcsc.com/v1/agents/products/info/{lcscNumber}")
+                res = makeLcscRequest(f"https://ips.lcsc.com/rest/wmsc2agent/product/info/{lcscNumber}")
                 if res.status_code != 200:
                     if any([x in res.text for x in timeouts]):
                         raise TimeoutError(res.text)
                 resJson = res.json()
-                if resJson["code"] in [563, 564]:
+                if resJson["code"] in [563, 564, 429]:
                     # The component was not found on LCSC - probably discontinued
                     return {}
                 if resJson["code"] != 200:
@@ -505,7 +505,7 @@ def loadJlcTable(file):
                 "package": x["Package"],
                 "joints": int(x["Solder Joint"]),
                 "manufacturer": x["Manufacturer"],
-                "basic": x["Library Type"] == "Basic",
+                "basic": x["Library Type"].lower() == "base",
                 "description": x["Description"],
                 "datasheet": x["Datasheet"],
                 "stock": int(x["Stock"]),
@@ -522,7 +522,7 @@ def loadJlcTableLazy(file):
                 "package": x["Package"],
                 "joints": int(x["Solder Joint"]),
                 "manufacturer": x["Manufacturer"],
-                "basic": x["Library Type"] == "Basic",
+                "basic": x["Library Type"].lower() == "base",
                 "description": x["Description"],
                 "datasheet": x["Datasheet"],
                 "stock": int(x["Stock"]),

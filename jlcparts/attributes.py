@@ -83,7 +83,8 @@ def readCurrent(value):
     value = value.split("..")[-1] # Some transistors give a range for current in Rds
     if value in ["-", "--"] or "null" in value:
         return "NaN"
-    return readWithSiPrefix(value)
+    v = readWithSiPrefix(value)
+    return v
 
 def readVoltage(value):
     value = value.replace("v", "V")
@@ -359,6 +360,10 @@ def rdsOnMaxAtVgsAtIds(value):
         v = v.replace("，", ",") # Replace special unicode characters
         # There is sometimes missing comma
         v = re.sub(r"V(\d)", r"V,\1", v)
+        if "," not in v:
+            # Sometimes, there is only resistance without anything else
+            return (readResistance(v), "NaN", "NaN")
+
         matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
         if matched is None:
             matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @

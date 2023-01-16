@@ -44,7 +44,10 @@ class JlcPcbInterface:
             }
         resp = requests.post("https://jlcpcb.com/external/component/getComponentInfos",
             data=body, headers=headers)
-        data = resp.json()["data"]
+        try:
+            data = resp.json()["data"]
+        except:
+            raise RuntimeError(f"Cannot fetch page: {resp.text}")
         self.lastPage = data["lastKey"]
         return data["componentInfos"]
 

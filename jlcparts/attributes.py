@@ -365,6 +365,12 @@ def rdsOnMaxAtVgsAtIds(value):
         # There is sometimes missing comma
         v = re.sub(r"V(\d)", r"V,\1", v)
         if "," not in v:
+            # Sometimes, we miss current
+            matched = re.match(r"(.*)\s*@\s*(.*)\s*", v)
+            if matched is not None:
+                resistance = matched.group(1).strip()
+                voltage = matched.group(2).strip()
+                return readResistance(resistance), "NaN", readVoltage(voltage)
             # Sometimes, there is only resistance without anything else
             return (readResistance(v), "NaN", "NaN")
 
@@ -814,9 +820,17 @@ def capacityAtVoltage(value):
         try:
             c, v = tuple(value.split("@"))
         except:
-            c, v = tuple(value.split(" "))
+            try:
+                c, v = tuple(value.split(" "))
+            except:
+                # Sometimes, we miss voltage
+                c = value
+                v = None
         c = readCapacitance(c.strip())
-        v = readVoltage(v.strip())
+        if v is not None:
+            v = readVoltage(v.strip())
+        else:
+            v = "NaN"
         return c, v
     if ";" in value:
         a, b = tuple(value.split(";"))

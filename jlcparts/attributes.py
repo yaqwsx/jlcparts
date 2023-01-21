@@ -359,41 +359,31 @@ def rdsOnMaxAtVgsAtIds(value):
     return it as structured value
     """
     def readRds(v):
-        if value == "-":
+        if v == "-":
             return "NaN", "NaN", "NaN"
-        v = v.replace("，", ",") # Replace special unicode characters
-        # There is sometimes missing comma
-        v = re.sub(r"V(\d)", r"V,\1", v)
-        if "," not in v:
-            # Sometimes, we miss current
-            matched = re.match(r"(.*)\s*@\s*(.*)\s*", v)
-            if matched is not None:
-                resistance = matched.group(1).strip()
-                voltage = matched.group(2).strip()
-                return readResistance(resistance), "NaN", readVoltage(voltage)
-            # Sometimes, there is only resistance without anything else
-            return (readResistance(v), "NaN", "NaN")
+        resistance, voltage, current = re.fullmatch(
+                r"\s*([\w.]+)\s*(?:[@\s]\s*([-~\w.]+?)\s*(?:(?:[,，]|(?<=[vam])(?=\d))([-\w.]+)\s*)?)?",
+                v,
+                re.I
+            ).groups()
+        if current is None:
+            current = "-"
+        if voltage is None:
+            voltage = "-"
 
-        matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
-        if matched is None:
-            matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
-        if matched is None:
-            # Sometimes, there is just resistance
-            matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v + ", -, -")
-        resistance = matched.group(1).strip()
-        voltage = matched.group(2).strip()
-        current = matched.group(3).strip()
-        # There are sometimes swapped values
-        if current.endswith("V") and (voltage.endswith("A") or voltage.endswith("m")):
-            current, voltage = voltage, current
+        if not current.endswith("A"):
+            if current.endswith("V"):
+                if voltage.endswith("A") or voltage.endswith("m"):
+                    # There are sometimes swapped values
+                    current, voltage = voltage, current
+                else:
+                    current = current.replace("V", "A")
+            else:
+                current += "A"
         if voltage.endswith("A"):
             voltage = voltage.replace("A", "V")
         if "~" in voltage:
             voltage = voltage.split("~")[-1]
-        if current.endswith("V"):
-            current = current.replace("V", "A")
-        if not current.endswith("A"):
-            current += "A"
         return (readResistance(resistance),
                 readCurrent(current),
                 readVoltage(voltage))

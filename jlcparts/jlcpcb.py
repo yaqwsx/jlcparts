@@ -1,6 +1,7 @@
 import requests
 import os
 import csv
+import time
 from typing import Optional, List, Any, Callable
 
 JLCPCB_KEY = os.environ.get("JLCPCB_KEY")
@@ -54,7 +55,8 @@ class JlcPcbInterface:
 def dummyReporter(progress) -> None:
     return
 
-def pullComponentTable(filename: str, reporter: Callable[[int], None] = dummyReporter) -> None:
+def pullComponentTable(filename: str, reporter: Callable[[int], None] = dummyReporter,
+                       retries: int = 10, retryDelay: int = 5) -> None:
     interf = JlcPcbInterface(JLCPCB_KEY, JLCPCB_SECRET)
     with open(filename, "w", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -74,7 +76,14 @@ def pullComponentTable(filename: str, reporter: Callable[[int], None] = dummyRep
         ])
         count = 0
         while True:
-            page = interf.getPage()
+            for i in range(retries):
+                try:
+                    page = interf.getPage()
+                    break
+                except Exception as e:
+                    if i == retries - 1:
+                        raise e from None
+                    time.sleep(retryDelay)
             if page is None:
                 break
             for c in page:

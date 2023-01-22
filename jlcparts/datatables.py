@@ -212,8 +212,19 @@ def extractComponent(component, schema):
                 attr.update(pullExtraAttributes(component))
                 weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
 
+                # Remove extra attributes that are either not useful, misleading
+                # or overridden by data from JLC
                 attr.pop("url", None)
                 attr.pop("images", None)
+                attr.pop("prices", None)
+                attr.pop("datasheet", None)
+                attr.pop("id", None)
+                attr.pop("manufacturer", None)
+                attr.pop("number", None)
+                attr.pop("title")
+                attr.pop("quantity", None)
+                for i in range(10):
+                    attr.pop(f"quantity{i}", None)
 
                 attr["Manufacturer"] = component.get("manufacturer", None)
 

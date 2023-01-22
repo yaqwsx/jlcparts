@@ -62,7 +62,7 @@ export function restoreImagesUrls(images) {
 }
 
 export function restoreLcscUrl(slug, lcsc) {
-    return `https://lcsc.com/product-detail/${slug}_${lcsc}.html`
+    return `https://lcsc.com/product-detail/${slug}_${lcsc}.html`;
 }
 
 function valueFootprint(value) {
@@ -709,7 +709,7 @@ class CategoryFilter extends React.Component {
         this.setState(produce(this.state, draft => {
             draft.searchString = "";
             if (draft.allCategories) {
-                this.selectNone(draft)
+                this.selectNone(draft);
             }
         }), () => {
             this.notifyParent();

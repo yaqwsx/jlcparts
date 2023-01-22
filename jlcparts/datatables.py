@@ -221,7 +221,7 @@ def extractComponent(component, schema):
                 attr.pop("id", None)
                 attr.pop("manufacturer", None)
                 attr.pop("number", None)
-                attr.pop("title")
+                attr.pop("title", None)
                 attr.pop("quantity", None)
                 for i in range(10):
                     attr.pop(f"quantity{i}", None)

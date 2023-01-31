@@ -56,9 +56,16 @@ export function formatAttribute(attribute) {
     });
 }
 
-export function restoreImagesUrls(images) {
-    return Object.entries(images).map(([size, slug]) =>
-        `https://assets.lcsc.com/images/lcsc/${size}x${size}/${slug}`);
+export function getImageUrl(img, size) {
+    if (!img) {
+        return null;
+    }
+    const sizeInPx = {
+        small: "96x96",
+        medium: "224x224",
+        big: "900x900"
+    }[size];
+    return `https://assets.lcsc.com/images/lcsc/${sizeInPx}/${img}`;
 }
 
 export function restoreLcscUrl(slug, lcsc) {
@@ -387,13 +394,8 @@ export class ComponentOverview extends React.Component {
                 name: "Image",
                 sortable: false,
                 displayGetter: x => {
-                    var imgSrc = "./brokenimage.svg";
-                    var zoomImgSrc = "./brokenimage.svg";
-                    let images = restoreImagesUrls(x.images);
-                    if (images?.length) {
-                        imgSrc = images[0];
-                        zoomImgSrc = images[images.length - 1];
-                    }
+                    const imgSrc = getImageUrl(x.img, "small") ?? "./brokenimage.svg";
+                    const zoomImgSrc = getImageUrl(x.img, "big") ?? "./brokenimage.svg";
                     return <ZoomableLazyImage
                         height={90}
                         width={90}
@@ -535,11 +537,7 @@ export function findCategoryById(categories, id) {
 
 function ExpandedComponent(props) {
     let comp = props.component;
-    var imgSrc = "./brokenimage.svg";
-    let images = restoreImagesUrls(comp.images);
-    if (images?.length) {
-        imgSrc = images[Math.min(1, images.length - 1)];
-    }
+    const imgSrc = getImageUrl(comp.img, "big") ?? "./brokenimage.svg";
     let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">
         <div className="w-full md:w-1/5 p-3">

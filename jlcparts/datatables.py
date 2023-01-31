@@ -180,14 +180,14 @@ def pullExtraAttributes(component):
         "Status": status
     }
 
-def trimImageUrls(images):
-    trimmedUrls = {}
-    for res, url in images.items():
-        size = res.split("x")[0]
-        slug = url[url.rindex("/") + 1:]
-        assert f"https://assets.lcsc.com/images/lcsc/{size}x{size}/{slug}" == url
-        trimmedUrls[size] = slug
-    return trimmedUrls
+def crushImages(images):
+    if not images:
+        return None
+    firstImg = images[0]
+    img = firstImg.popitem()[1].rsplit("/", 1)[1]
+    # make sure every url ends the same
+    assert all(i.rsplit("/", 1)[1] == img for i in firstImg.values())
+    return img
 
 def trimLcscUrl(url, lcsc):
     if url is None:
@@ -230,11 +230,9 @@ def extractComponent(component, schema):
 
                 attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
                 propertyList.append(attr)
-            elif schItem == "images":
-                images = component.get("extra", {}).get("images", [])
-                if not images:
-                    images = [{}]
-                propertyList.append(trimImageUrls(images[0]))
+            elif schItem == "img":
+                images = component.get("extra", {}).get("images", None)
+                propertyList.append(crushImages(images))
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
                 propertyList.append(trimLcscUrl(url, component["lcsc"]))
@@ -251,7 +249,7 @@ def extractComponent(component, schema):
 
 def buildDatatable(components):
     schema = ["lcsc", "mfr", "joints", "description",
-              "datasheet", "price", "images", "url", "attributes"]
+              "datasheet", "price", "img", "url", "attributes"]
     return {
         "schema": schema,
         "components": [extractComponent(x, schema) for x in components]

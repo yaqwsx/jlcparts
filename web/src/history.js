@@ -1,7 +1,7 @@
 import React from 'react';
 import { fetchJson, db } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
-         formatAttribute, findCategoryById, restoreImagesUrls,
+         formatAttribute, findCategoryById, getImageUrl,
          restoreLcscUrl } from './componentTable'
 import { getQuantityPrice } from './jlc'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -26,8 +26,7 @@ class HistoryItem extends React.Component {
 
     renderImage() {
         let x = this.state.info;
-        let images = restoreImagesUrls(x.images);
-        let imgSrc = (images?.length) ? images[0] : "./brokenimage.svg";
+        const imgSrc = getImageUrl(x.img, "small") ?? "./brokenimage.svg";
         return <ZoomableLazyImage
             height={90}
             width={90}

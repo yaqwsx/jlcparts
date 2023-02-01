@@ -525,8 +525,12 @@ def vgsThreshold(value):
     def readVgs(v):
         if value == "-":
             return "NaN", "NaN"
-        matched = re.match(r"(.*?)(@| )(.*)", v)
-        return readVoltage(matched.group(1)), readCurrent(matched.group(3))
+        matched = re.match(r"(.*?V)((@| )(.*))?", v)
+        voltage = matched.group(1)
+        current = matched.group(4)
+        if current is None:
+            current = "-"
+        return readVoltage(voltage), readCurrent(current)
 
     value = re.sub(r"\(.*?\)", "", value)
     if "," in value or ";" in value:

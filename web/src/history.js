@@ -161,7 +161,7 @@ class HistoryTable extends React.Component {
         }
         return this.state.table.map(item => {
             if (item.components.length === 0)
-                return <></>
+                return null;
             let day = item.day;
             return <div key={item.day}>
                 <h2 className="w-full text-lg font-bold mt-6">

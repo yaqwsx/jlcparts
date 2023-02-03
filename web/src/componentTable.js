@@ -130,16 +130,17 @@ export class ZoomableLazyImage extends React.Component {
                         width={this.props.height}
                         src={this.props.src}/>
                 {
-                    this.state.hover
-                        ? <div className="z-40 absolute bg-white border-solid border-gray-600 border-2">
+                    this.state.hover && (
+                        <div className="z-40 absolute bg-white border-solid border-gray-600 border-2">
                             <LazyLoadImage
                                 height={this.props.zoomWidth}
                                 width={this.props.zoomHeight}
                                 src={this.props.zoomSrc}/>
-                          </div>
-                        : <></>
+                        </div>
+                    )
                 }
-            </div>)
+            </div>
+        )
     }
 }
 
@@ -356,7 +357,7 @@ export class ComponentOverview extends React.Component {
                 sortable: true,
                 className: "px-1 whitespace-no-wrap text-center",
                 displayGetter: x => {
-                    let discontinued = <></>;
+                    let discontinued = null;
                     if (x.attributes.Status) {
                         let flag = formatAttribute(x.attributes.Status);
                         if (flag === "Discontinued") {
@@ -873,7 +874,7 @@ class PropertySelector extends React.Component {
     render() {
         let options = this.valueOptions();
         if (options.length <= 1)
-            return <></>
+            return null;
         return <MultiSelectBox
             className={this.props.className}
             minHeight="10em"

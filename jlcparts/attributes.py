@@ -31,6 +31,8 @@ def readWithSiPrefix(value):
     read its value. E.g., 10k ~> 10000, 10m ~> 0.01
     """
     value = value.strip()
+    if value == "-" or value == "" or value == "null":
+        return "NaN"
     unitPrexies = {
         "p": 1e-12,
         "n": 1e-9,
@@ -44,8 +46,6 @@ def readWithSiPrefix(value):
         "M": 1e6,
         "G": 1e9
     }
-    if value == "-" or value == "":
-        return "NaN"
     if value[-1].isalpha() or value[-1] == "?": # Again, watch for the ? typo
         return float(value[:-1]) * unitPrexies[value[-1]]
     return float(value)

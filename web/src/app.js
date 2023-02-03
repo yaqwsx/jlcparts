@@ -86,7 +86,7 @@ class FirstTimeNote extends React.Component {
 
   render() {
     if (this.state.componentCount === undefined || this.state.componentCount !== 0)
-      return <></>
+      return null;
     return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
       <p>
         Hey, it seems that you run the application for the first time, hence,
@@ -118,7 +118,7 @@ class NewComponentFormatWarning extends React.Component {
 
   render() {
     if (this.state.newComponentFormat)
-      return <></>
+      return null;
     return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
       <p>
         Hey, there have been some breaking changes to the library format.

@@ -16,7 +16,7 @@ function SortableHeaderField(props) {
             icon = "sort-amount-down";
         sortIcons = <FontAwesomeIcon icon={icon}/>
     } else {
-        sortIcons = <></>
+        sortIcons = null;
     }
 
     return <>
@@ -27,14 +27,14 @@ function SortableHeaderField(props) {
                     {sortIcons}
                 </div>
                 {
-                    props.onDelete
-                    ? <div className="flex-none" onClick={e => {
-                        e.stopPropagation();
-                        props.onDelete();
-                    }}>
-                        <FontAwesomeIcon icon="times-circle"/>
-                    </div>
-                    : <></>
+                    props.onDelete && (
+                        <div className="flex-none" onClick={e => {
+                            e.stopPropagation();
+                            props.onDelete();
+                        }}>
+                            <FontAwesomeIcon icon="times-circle"/>
+                        </div>
+                    )
                 }
             </div>
         </th>
@@ -151,9 +151,9 @@ export class SortableTable extends React.Component {
                 }</tbody>
             </table>
             {
-                this.state.visibleItems < this.props.data.length
-                ? <p className="w-full text-center m-4">Loading more components...</p>
-                : <></>
+                this.state.visibleItems < this.props.data.length && (
+                    <p className="w-full text-center m-4">Loading more components...</p>
+                )
             }
             <Waypoint key="tableEnd" onEnter={this.showMore}/>
         </>
@@ -176,7 +176,7 @@ class ExpandableTableRow extends React.Component {
     }
 
     render() {
-        let expandableContent = <></>
+        let expandableContent = null;
         let className = this.props.className ?? "";
         if (this.state.expanded && this.props.expandableContent) {
             expandableContent = <tr>

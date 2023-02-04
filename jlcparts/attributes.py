@@ -123,7 +123,7 @@ def readCharge(value):
     return readWithSiPrefix(value)
 
 def readFrequency(value):
-    value = erase(value, ["Hz", "HZ"]).strip()
+    value = erase(value, ["Hz", "HZ", "H"]).strip()
     return readWithSiPrefix(value)
 
 def readInductance(value):
@@ -573,12 +573,10 @@ def esr(value):
             }
         }
     value = erase(value, ["(", ")"]) # For resonators, the value is enclosed in parenthesis
-    matches = re.search(r"\d+(\.\d+)?\s*?[a-zA-Z]?(Ohm|Ω)", value)
-    res = readResistance(matches.group(0).replace(" ", ""))
-
-    matches = re.search(r"\d+(\.\d+)?[a-zA-Z]?Hz", value)
-    if matches:
-        freq = readFrequency(matches.group(0))
+    matches = re.fullmatch(r"([\w.]*)\s*(?:[@\s]\s*([~\w.]*))?", value)
+    res = readResistance(matches.group(1))
+    if matches.group(2):
+        freq = readFrequency(matches.group(2).split('~')[-1])
         return {
             "format": "${esr} @ ${frequency}",
             "default": "esr",

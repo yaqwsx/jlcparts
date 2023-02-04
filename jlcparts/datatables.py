@@ -1,6 +1,7 @@
 import click
 import re
 import os
+import shutil
 import json
 import datetime
 import gzip

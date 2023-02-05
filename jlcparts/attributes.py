@@ -104,10 +104,7 @@ def readPower(value):
         return readPower(value.split(";")[0])
     if "/" in value:
         # Fraction
-        matches = re.match(r"(\d+)/(\d+)(.*)", value)
-        numerator = matches.group(1)
-        denominator = matches.group(2)
-        unit = matches.group(3).strip()
+        numerator, denominator, unit = re.fullmatch(r"(\d+)/(\d+)\s*(\w+)", value).groups()
         value = str(float(numerator) / float(denominator)) + unit
     value = value.replace("W", "").strip()
     return readWithSiPrefix(value)
@@ -306,12 +303,9 @@ def rdsOnMaxAtIdsAtVgs(value):
     return it as structured value
     """
     def readRds(v):
-        if value == "-":
+        if v == "-":
             return "NaN", "NaN", "NaN"
-        v = v.replace("，", ",") # Replace special unicode characters
-        matched = re.match(r"(.*)\s*@\s*(.*)\s*,\s*(.*)", v)
-        if matched is None:
-            matched = re.match(r"(.*)\s+(.*),(.*)", v) # Sometimes there is no @
+        matched = re.fullmatch(r"([\w.]*)\s*[@\s]\s*([-\w.]*)\s*[,，]\s*([-~\w.]*)").groups()
         # There are some transistors with a typo; using "A" instead of "V" or Ω, fix it:
         resistance = matched.group(1).replace("A", "Ω")
         voltage = matched.group(3).replace("A", "V")
@@ -525,9 +519,7 @@ def vgsThreshold(value):
     def readVgs(v):
         if value == "-":
             return "NaN", "NaN"
-        matched = re.match(r"(.*?V)((@| )(.*))?", v)
-        voltage = matched.group(1)
-        current = matched.group(4)
+        voltage, current = re.match(r"([-\w.]*)(?:[@| ]([-\w.]*))?", v).groups()
         if current is None:
             current = "-"
         return readVoltage(voltage), readCurrent(current)

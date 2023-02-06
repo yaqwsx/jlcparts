@@ -210,7 +210,7 @@ class PartLibraryDb:
             result = self.conn.cursor().execute("""
                 SELECT * FROM v_components WHERE category_id = ? and last_on_stock > ?
                 """, (catId, int(time.time()) - stockNewerThan * 24 * 3600))
-        return list(map(dbToComp, result))
+        return map(dbToComp, result)
 
     def addComponent(self, component, flag=None):
         cur = self.conn.cursor()

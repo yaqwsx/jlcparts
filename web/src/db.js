@@ -177,19 +177,22 @@ async function updateCategories(categoryIndex, onNew, onUpdateExisting, onUpdate
 // Takes an array containing schema and an array of values and turns them into
 // dictionary
 function restoreObject(schema, source) {
-    return schema.reduce((obj, k, i) => ({...obj, [k]: source[i] }), {})
+    return schema.reduce((obj, k, i) => {
+        obj[k] = source[i];
+        return obj;
+    }, {});
 }
 
 // Takes a JSON fetched from server and adds them to the database for the
 // corresponding category
-async function addComponents(category, components) {
+function addComponents(category, components) {
     let schema = components.schema;
     let cObjects = components.components.map(src => {
         let obj = restoreObject(schema, src);
         obj.category = extractCategoryKey(category);
         return obj;
     });
-    await db.components.bulkPut(cObjects);
+    return db.components.bulkPut(cObjects);
 }
 
 // Add a single category and fetch all of its components

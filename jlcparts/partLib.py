@@ -31,7 +31,7 @@ def lcscFromDb(val):
     return f"C{val}"
 
 def dbToComp(comp):
-    comp = {k: comp[k] for k in comp.keys()}
+    comp = dict(comp)
     comp["lcsc"] = lcscFromDb(comp["lcsc"])
     comp["price"] = json.loads(comp["price"])
     comp["extra"] = json.loads(comp["extra"])
@@ -211,7 +211,6 @@ class PartLibraryDb:
                 SELECT * FROM v_components WHERE category_id = ? and last_on_stock > ?
                 """, (catId, int(time.time()) - stockNewerThan * 24 * 3600))
         return list(map(dbToComp, result))
-
 
     def addComponent(self, component, flag=None):
         cur = self.conn.cursor()

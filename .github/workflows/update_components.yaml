@@ -43,9 +43,10 @@ jobs:
           sudo pip3 install -e .
 
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip
-          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z01 || true
-          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z02 || true
-          wget -q https://yaqwsx.github.io/jlcparts/data/cache.z03 || true
+          for seq in $(seq 1 9); do
+            wget -q https://yaqwsx.github.io/jlcparts/data/cache.z0$seq || true
+          done
+
           7z x cache.zip
 
           jlcparts fetchtable parts.csv

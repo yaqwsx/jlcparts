@@ -52,7 +52,7 @@ jobs:
           jlcparts fetchtable parts.csv
 
           jlcparts getlibrary --age 10000 \
-                              --limit 50000 \
+                              --limit 15000 \
                               parts.csv cache.sqlite3
           jlcparts buildtables --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data

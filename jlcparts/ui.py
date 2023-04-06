@@ -49,6 +49,9 @@ def getLibrary(source, db, age, limit):
         print(f"{ageCount} components will be aged and thus refreshed")
         missing = missing.union(db.getNOldest(ageCount))
 
+        # Truncate the missing components to respect the limit:
+        missing = list(missing)[:limit]
+
         with Pool(processes=10) as pool:
             for i, (lcsc, extra) in enumerate(pool.imap_unordered(fetchLcscData, missing)):
                 print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")

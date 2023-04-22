@@ -37,6 +37,7 @@ def readWithSiPrefix(value):
         "p": 1e-12,
         "n": 1e-9,
         "u": 1e-6,
+        "U": 1e-6,
         "μ": 1e-6,
         "µ": 1e-6,
         "?": 1e-3, # There is a common typo instead of 'm' there is '?' - the keys are close on keyboard

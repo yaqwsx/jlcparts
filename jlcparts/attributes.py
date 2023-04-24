@@ -855,16 +855,21 @@ def chargeAtVoltage(value):
             }
         }
     def readTheTuple(value):
-        try:
-            q, v = tuple(value.split("@"))
-        except:
-            q, v = tuple(value.split(" "))
-        q = readCharge(q.strip())
-        if "/" in v:
-            v = v.split("/")[-1]
-        if "~" in v:
-            v = v.split("~")[-1]
-        v = readVoltage(re.sub(r'-?\d+~', '', v.strip()))
+        match = re.match(r"(?P<cap>.*?)(\s*[ @](?P<voltage>.*))?", value.strip())
+        if match is None:
+            raise RuntimeError(f"Cannot parse charge at voltage for {value}")
+        q = match.groupdict().get("cap")
+        v = match.groupdict().get("voltage")
+
+        if q is not None:
+            q = readCharge(q.strip())
+        else:
+            q = "NaN"
+
+        if v is not None:
+            v = readVoltage(re.sub(r'-?\d+~', '', v.strip()))
+        else:
+            v = "NaN"
         return q, v
 
     if ";" in value:

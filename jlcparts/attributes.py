@@ -597,6 +597,8 @@ def rippleCurrent(value):
                 "frequency": ["NaN", "frequency"]
             }
         }
+    if value.endswith("-"): # Work around for trailing trash
+        value = value[:-1]
     s = value.split("@")
     if len(s) == 1:
         s = value.split(" ")

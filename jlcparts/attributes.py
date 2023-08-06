@@ -356,11 +356,23 @@ def rdsOnMaxAtVgsAtIds(value):
     def readRds(v):
         if v == "-":
             return "NaN", "NaN", "NaN"
-        resistance, voltage, current = re.fullmatch(
+        #
+        match = re.fullmatch(
                 r"\s*([\w.]+)\s*(?:[@\s]\s*([-~\w.]+?)\s*(?:(?:[,，]|(?<=[vam])(?=\d))([-\w.]+)\s*)?)?",
                 v,
                 re.I
-            ).groups()
+            )
+        if match is not None:
+            resistance, voltage, current = match.groups()
+        else:
+            # There some components in the form 2.5Ω@VGS=10V, try this format
+            resistance, voltage = re.fullmatch(
+                r"\s*(.*Ω)\s*@\s*VGS=\s*(.*V)\s*",
+                v,
+                re.I
+            )
+            current = None
+
         if current is None:
             current = "-"
         if voltage is None:

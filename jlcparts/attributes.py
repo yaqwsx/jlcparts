@@ -370,7 +370,7 @@ def rdsOnMaxAtVgsAtIds(value):
                 r"\s*(.*Ω)\s*@\s*VGS=\s*(.*V)\s*",
                 v,
                 re.I
-            )
+            ).groups()
             current = None
 
         if current is None:

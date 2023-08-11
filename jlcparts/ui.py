@@ -1,8 +1,9 @@
 from multiprocessing import Pool
+import json
 
 import click
 
-from jlcparts.datatables import buildtables
+from jlcparts.datatables import buildtables, normalizeAttribute
 from jlcparts.partLib import (PartLibrary, PartLibraryDb, getLcscExtraNew,
                               loadJlcTable, loadJlcTableLazy)
 
@@ -119,6 +120,28 @@ def fetchTable(filename, verbose):
 
     pullComponentTable(filename, report)
 
+@click.command()
+@click.argument("lcsc")
+def testComponent(lcsc):
+    """
+    Tests parsing attributes of given component
+    """
+    extra = getLcscExtraNew(lcsc)["attributes"]
+
+    extra.pop("url", None)
+    extra.pop("images", None)
+    extra.pop("prices", None)
+    extra.pop("datasheet", None)
+    extra.pop("id", None)
+    extra.pop("manufacturer", None)
+    extra.pop("number", None)
+    extra.pop("title", None)
+    extra.pop("quantity", None)
+    for i in range(10):
+        extra.pop(f"quantity{i}", None)
+    normalized = dict(normalizeAttribute(key, val) for key, val in extra.items())
+    print(json.dumps(normalized, indent=4))
+
 
 @click.group()
 def cli():
@@ -130,6 +153,7 @@ cli.add_command(listattributes)
 cli.add_command(buildtables)
 cli.add_command(fetchDetails)
 cli.add_command(fetchTable)
+cli.add_command(testComponent)
 
 if __name__ == "__main__":
     cli()

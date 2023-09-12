@@ -18,6 +18,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             python3 python3-pip nodejs npm wget zip unzip p7zip-full
           sudo pip3 install requests click
+      - name: List disk space
+        run: |
+          df -h
+          echo SQLITE_TMPDIR=$SQLITE_TMPDIR
+          echo TMPDIR=$TMPDIR
       - name: Build frontend
         run: |
           cd web
@@ -32,17 +37,13 @@ jobs:
             echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
           fi
           touch .nojekyll
-      - name: List disk space
-        run: |
-          df -h
-          echo SQLITE_TMPDIR=$SQLITE_TMPDIR
-          echo TMPDIR=$TMPDIR
       - name: Update database
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}
           LCSC_SECRET: ${{ secrets.LCSC_SECRET }}
           JLCPCB_KEY: ${{ secrets.JLCPCB_KEY }}
           JLCPCB_SECRET: ${{ secrets.JLCPCB_SECRET }}
+          SQLITE_TMPDIR: "/mnt"
         run: |
           set -x
           sudo pip3 install -e .

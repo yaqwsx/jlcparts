@@ -32,6 +32,11 @@ jobs:
             echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
           fi
           touch .nojekyll
+      - name: List disk space
+        run: |
+          df -h
+          echo SQLITE_TMPDIR=$SQLITE_TMPDIR
+          echo TMPDIR=$TMPDIR
       - name: Update database
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}

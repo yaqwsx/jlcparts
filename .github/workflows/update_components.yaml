@@ -23,20 +23,20 @@ jobs:
           df -h
           echo SQLITE_TMPDIR=$SQLITE_TMPDIR
           echo TMPDIR=$TMPDIR
-      - name: Build frontend
-        run: |
-          cd web
-          if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]; then
-            export BASEURL=https://jlcparts-dev.honzamrazek.cz
-          else
-            export BASEURL=https://yaqwsx.github.io/jlcparts
-          fi
-          npm install --silent
-          NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
-          if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
-            echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
-          fi
-          touch .nojekyll
+      # - name: Build frontend
+      #   run: |
+      #     cd web
+      #     if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]; then
+      #       export BASEURL=https://jlcparts-dev.honzamrazek.cz
+      #     else
+      #       export BASEURL=https://yaqwsx.github.io/jlcparts
+      #     fi
+      #     npm install --silent
+      #     NODE_ENV=production PUBLIC_URL=${BASEURL} npm run build
+      #     if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
+      #       echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
+      #     fi
+      #     touch .nojekyll
       - name: Update database
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}
@@ -57,28 +57,36 @@ jobs:
 
           jlcparts fetchtable parts.csv
 
-          jlcparts getlibrary --age 10000 \
-                              --limit 30000 \
+          echo SQLITE_TMPDIR = $SQLITE_TMPDIR
+
+          df -h
+
+          jlcparts getlibrary --age 0 \
+                              --limit 0 \
                               parts.csv cache.sqlite3
+          df -h
+
           jlcparts buildtables --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data
 
+          df -h
+
           rm -f web/build/data/cache.z*
           zip -s 50m web/build/data/cache.zip cache.sqlite3
-      - name: Tar artifact # Artifact are case insensitive, this is workaround
-        run: tar -czf web_build.tar.gz web/build/
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: web_build
-          path: web_build.tar.gz
-          retention-days: 14
-      - name: Upload table
-        uses: actions/upload-artifact@v3
-        with:
-          name: component_table
-          path: parts.csv
-          retention-days: 14
+      # - name: Tar artifact # Artifact are case insensitive, this is workaround
+      #   run: tar -czf web_build.tar.gz web/build/
+      # - name: Upload artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: web_build
+      #     path: web_build.tar.gz
+      #     retention-days: 14
+      # - name: Upload table
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: component_table
+      #     path: parts.csv
+      #     retention-days: 14
   deploy:
     name: "Deploy"
     runs-on: ubuntu-20.04

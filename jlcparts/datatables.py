@@ -1,14 +1,17 @@
-import click
+import dataclasses
 import re
 import os
 import shutil
 import json
 import datetime
 import gzip
+import multiprocessing
+from pathlib import Path
+
+import click
 from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
-from pathlib import Path
 
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
@@ -270,12 +273,56 @@ def clearDir(directory):
         elif os.path.isdir(file_path):
             shutil.rmtree(file_path)
 
+
+@dataclasses.dataclass
+class MapCategoryParams:
+    libraryPath: str
+    outdir: str
+    ignoreoldstock: int
+
+    catName: str
+    subcatName: str
+
+
+def _map_category(val: MapCategoryParams):
+    # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
+    # components.
+    if val.catName.strip() == "":
+        return None
+    if val.subcatName.strip() == "":
+        return None
+
+    filebase = val.catName + val.subcatName
+    filebase = filebase.replace("&", "and").replace("/", "aka")
+    filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
+
+    lib = PartLibraryDb(val.libraryPath)
+    components = lib.getCategoryComponents(val.catName, val.subcatName, stockNewerThan=val.ignoreoldstock)
+
+    dataTable = buildDatatable(components)
+    dataTable.update({"category": val.catName, "subcategory": val.subcatName})
+    dataHash = saveJson(dataTable, os.path.join(val.outdir, f"{filebase}.json.gz"),
+                        hash=True, compress=True)
+
+    stockTable = buildStocktable(components)
+    stockHash = saveJson(stockTable, os.path.join(val.outdir, f"{filebase}.stock.json"), hash=True)
+
+    return {
+        "catName": val.catName,
+        "subcatName": val.subcatName,
+        "sourcename": filebase,
+        "datahash": dataHash,
+        "stockhash": stockHash
+    }
+
 @click.command()
 @click.argument("library", type=click.Path(dir_okay=False))
 @click.argument("outdir", type=click.Path(file_okay=False))
 @click.option("--ignoreoldstock", type=int, default=None,
     help="Ignore components that weren't on stock for more than n days")
-def buildtables(library, outdir, ignoreoldstock):
+@click.option("--jobs", type=int, default=1,
+    help="Number of parallel processes. Defaults to 1, set to 0 to use all cores")
+def buildtables(library, outdir, ignoreoldstock, jobs):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
@@ -283,43 +330,31 @@ def buildtables(library, outdir, ignoreoldstock):
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)
 
+
+    total = lib.countCategories()
     categoryIndex = {}
-    with lib.startTransaction():
-        currentIdx = 0
-        total = lib.countCategories()
-        for catName, subcats in lib.categories().items():
-            # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
-            # components.
-            if catName.strip() == "":
+
+    params = []
+    for (catName, subcategories) in lib.categories().items():
+        for subcatName in subcategories:
+            params.append(MapCategoryParams(
+                libraryPath=library, outdir=outdir, ignoreoldstock=ignoreoldstock,
+                catName=catName, subcatName=subcatName))
+
+    with multiprocessing.Pool(jobs or multiprocessing.cpu_count()) as pool:
+        for i, result in enumerate(pool.imap_unordered(_map_category, params)):
+            if result is None:
                 continue
-            subcatIndex = {}
-            for subcatName in subcats:
-                # The same...
-                if subcatName.strip() == "":
-                    continue
-                currentIdx += 1
-                print(f"{((currentIdx) / total * 100):.2f} % {catName}: {subcatName}")
-                filebase = catName + subcatName
-                filebase = filebase.replace("&", "and").replace("/", "aka")
-                filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
-
-                components = lib.getCategoryComponents(catName, subcatName, stockNewerThan=ignoreoldstock)
-
-                dataTable = buildDatatable(components)
-                dataTable.update({"category": catName, "subcategory": subcatName})
-                dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gz"),
-                                    hash=True, compress=True)
-
-                stockTable = buildStocktable(components)
-                stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
-
-                assert subcatName not in subcatIndex
-                subcatIndex[subcatName] = {
-                    "sourcename": filebase,
-                    "datahash": dataHash,
-                    "stockhash": stockHash
-                }
-            categoryIndex[catName] = subcatIndex
+            catName, subcatName = result["catName"], result["subcatName"]
+            print(f"{((i) / total * 100):.2f} % {catName}: {subcatName}")
+            if catName not in categoryIndex:
+                categoryIndex[catName] = {}
+            assert subcatName not in categoryIndex[catName]
+            categoryIndex[catName][subcatName] = {
+                "sourcename": result["sourcename"],
+                "datahash": result["datahash"],
+                "stockhash": result["stockhash"]
+            }
     index = {
         "categories": categoryIndex,
         "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()

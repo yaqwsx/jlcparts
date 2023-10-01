@@ -73,12 +73,10 @@ $ pip install -e .
 Then to download the cached parts list and process it, run:
 
 ```
-$ wget https://yaqwsx.github.io/jlcparts/data/cache.zip 
-$ wget https://yaqwsx.github.io/jlcparts/data/cache.z01
-$ wget https://yaqwsx.github.io/jlcparts/data/cache.z02
+$ wget https://yaqwsx.github.io/jlcparts/data/cache.zip https://yaqwsx.github.io/jlcparts/data/cache.z0{1..8}
 $ 7z x cache.zip
 $ mkdir -p web/public/data/
-$ jlcparts buildtables cache.sqlite3 web/public/data
+$ jlcparts buildtables --jobs 0 --ignoreoldstock 30 cache.sqlite3 web/public/data
 ```
 
 To launch the frontend web server, run:

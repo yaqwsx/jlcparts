@@ -1,14 +1,25 @@
-import click
-import re
-import os
-import shutil
-import json
-import datetime
+import dataclasses
 import gzip
-from jlcparts.partLib import PartLibraryDb
-from jlcparts.common import sha256file
-from jlcparts import attributes, descriptionAttributes
+import itertools
+import json
+import multiprocessing
+from multiprocessing.shared_memory import SharedMemory
+import os
+import random
+import shutil
+import sqlite3
+import struct
+import textwrap
 from pathlib import Path
+from typing import Dict, Generator, Optional
+
+import click
+import pyzstd
+
+from jlcparts import attributes, descriptionAttributes
+from jlcparts.common import sha256file
+from jlcparts.partLib import PartLibraryDb
+
 
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
@@ -199,7 +210,7 @@ def trimLcscUrl(url, lcsc):
 
 def extractComponent(component, schema):
     try:
-        propertyList = []
+        result: Dict[str, Optional[str]] = {}
         for schItem in schema:
             if schItem == "attributes":
                 # The cache might be in the old format
@@ -230,31 +241,31 @@ def extractComponent(component, schema):
                 attr["Manufacturer"] = component.get("manufacturer", None)
 
                 attr = dict([normalizeAttribute(key, val) for key, val in attr.items()])
-                propertyList.append(attr)
+                result[schItem] = json.dumps(attr)
             elif schItem == "img":
                 images = component.get("extra", {}).get("images", None)
-                propertyList.append(crushImages(images))
+                result[schItem] = crushImages(images)
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
-                propertyList.append(trimLcscUrl(url, component["lcsc"]))
+                result[schItem] = trimLcscUrl(url, component["lcsc"])
             elif schItem in component:
                 item = component[schItem]
                 if isinstance(item, str):
                     item = item.strip()
-                propertyList.append(item)
+                else:
+                    item = json.dumps(item)
+                result[schItem] = item
             else:
-                propertyList.append(None)
-        return propertyList
+                result[schItem] = None
+        return result
     except Exception as e:
         raise RuntimeError(f"Cannot extract {component['lcsc']}").with_traceback(e.__traceback__)
 
-def buildDatatable(components):
+
+def buildDatatable(components) -> Generator[Dict[str, str], None, None]:
     schema = ["lcsc", "mfr", "joints", "description",
-              "datasheet", "price", "img", "url", "attributes"]
-    return {
-        "schema": schema,
-        "components": [extractComponent(x, schema) for x in components]
-    }
+              "datasheet", "price", "img", "url", "attributes", "stock"]
+    return (extractComponent(component, schema) for component in components)
 
 def buildStocktable(components):
     return {component["lcsc"]: component["stock"] for component in components }
@@ -270,12 +281,212 @@ def clearDir(directory):
         elif os.path.isdir(file_path):
             shutil.rmtree(file_path)
 
+
+def _sqlite_fast_cur(path: str) -> sqlite3.Cursor:
+    conn = sqlite3.connect(path, isolation_level=None)
+    cursor = conn.cursor()
+    # very dangerous, but we don't care about data integrity here. Recovery is to
+    # delete the whole database and rebuild.
+    cursor.execute("PRAGMA journal_mode=OFF;")
+    cursor.execute("PRAGMA synchronous=OFF;")
+    return cursor
+
+
+INIT_TABLES_SQL = textwrap.dedent("""\
+    CREATE TABLE categories
+    (
+        id          INTEGER PRIMARY KEY NOT NULL,
+        category    TEXT NOT NULL,
+        subcategory TEXT NOT NULL,
+        UNIQUE (category, subcategory)
+    );
+    CREATE TABLE component
+    (
+        lcsc        TEXT PRIMARY KEY NOT NULL,
+        category_id INTEGER          NOT NULL REFERENCES categories (id),
+        mfr         TEXT             NOT NULL,
+        joints      INTEGER          NOT NULL,
+        description TEXT             NOT NULL,
+        datasheet   TEXT             NOT NULL,
+        price       TEXT             NOT NULL, -- JSON
+        img         TEXT,
+        url         TEXT,
+        attributes  TEXT             NOT NULL, -- JSON
+        stock       INTEGER          NOT NULL
+    );""")
+
+@dataclasses.dataclass
+class MapCategoryParams:
+    libraryPath: str
+    outdir: str
+    ignoreoldstock: int
+
+    catName: str
+    subcatName: str
+
+
+_map_category_cur = None
+def _map_category(val: MapCategoryParams):
+    # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
+    # components.
+    if val.catName.strip() == "":
+        return None
+    if val.subcatName.strip() == "":
+        return None
+
+    # each process gets its own database, then we merge them at the end and add indexes
+    # we do this because SQLite doesn't do a good job with concurrent writes and ends up
+    # getting stuck on locks
+    global _map_category_cur
+    if _map_category_cur is None:
+        _map_category_cur = _sqlite_fast_cur(os.path.join(val.outdir, f"part_${os.getpid()}.sqlite3"))
+        _map_category_cur.executescript(INIT_TABLES_SQL)
+    cur = _map_category_cur
+
+    lib = PartLibraryDb(val.libraryPath)
+    components = lib.getCategoryComponents(val.catName, val.subcatName,
+                                           stockNewerThan=val.ignoreoldstock)
+
+    categoryId = random.randint(0, 2**31 - 1)
+    insertCategory = textwrap.dedent("""\
+        INSERT INTO categories (id, category, subcategory)
+        VALUES ($id, $category, $subcategory)""")
+    cur.execute(
+        insertCategory,
+        {
+            "id": categoryId,
+            "category": val.catName,
+            "subcategory": val.subcatName
+        })
+
+    insertComponent = textwrap.dedent("""\
+        INSERT INTO component (lcsc, category_id, mfr, joints, description, datasheet, price, img, url,
+                               attributes, stock)
+        VALUES ($lcsc, $category_id, $mfr, $joints, $description, $datasheet, $price, $img, $url,
+                $attributes, $stock)""")
+    dataIter = ({
+        **component,
+        "category_id": categoryId,
+    } for component in buildDatatable(components))
+
+    while batch := list(itertools.islice(dataIter, 200)):
+        cur.executemany(insertComponent, batch)
+        cur.connection.commit()
+
+    return {
+        "catName": val.catName,
+        "subcatName": val.subcatName,
+    }
+
+def compressChunkGzip(c):
+    return (c, gzip.compress(c))
+
+def pagedCompressFileGzip(inputPath, pageSize=1024, jobs=1):
+    with open(inputPath, 'rb') as infile, \
+            open(f"{inputPath}.gzpart", 'wb') as outfile, \
+            open(f"{inputPath}.gzindex", 'wb') as indexfile:
+        dataPos = 0
+        compPos = 0
+
+        # magic number to indicate index format.
+        indexfile.write(struct.pack('<QQ', 0xb6d881b0d2f0408e, 0x9c7649381fe30e8c))
+
+        totalChunks = os.path.getsize(inputPath) // pageSize
+        with multiprocessing.Pool(jobs or multiprocessing.cpu_count()) as pool:
+
+            chunkIter = iter(lambda: infile.read(pageSize), b'')
+            for i, (chunk, compressedChunk) in enumerate(pool.imap(compressChunkGzip, chunkIter, chunksize=100)):
+                if i % (16*1024) == 0:
+                    print(f"{i / totalChunks * 100:.0f} % compressed")
+                outfile.write(compressedChunk)
+                indexfile.write(struct.pack('<LL', dataPos, compPos))
+                dataPos += len(chunk)
+                compPos += len(compressedChunk)
+
+            # write last index entry to simplify index reading logic.
+            indexfile.write(struct.pack('<LL', dataPos, compPos))
+
+def compressChunkZstd(args):
+    c, sharedDictName = args
+    try:
+        sharedDict = SharedMemory(name=sharedDictName)
+        zstdDict = pyzstd.ZstdDict(sharedDict.buf)
+        return (c, pyzstd.compress(c,  6, zstd_dict=zstdDict))
+    finally:
+        sharedDict.close()
+
+
+def pagedCompressFileZstd(inputPath, pageSize=1024, jobs=1, dictSize=16*1024):
+    def trainDict():
+        fileSize = os.path.getsize(inputPath)
+        trainingChunkSize = 256 * 1024
+        trainingSamplesCount = 32
+        step = (fileSize - trainingChunkSize) // (trainingSamplesCount - 1)
+        trainingSamples = []
+
+        with open(inputPath, 'rb') as file:
+            for offset in range(0, fileSize, step):
+                file.seek(offset)
+                trainingSamples.append(file.read(trainingChunkSize))
+
+        zstdDict = pyzstd.train_dict(trainingSamples, dict_size=dictSize)
+        zstdDict = pyzstd.finalize_dict(zstdDict, trainingSamples, dict_size=dictSize, level=6)
+        return zstdDict
+
+
+    with open(inputPath, 'rb') as infile, \
+            open(f"{inputPath}.zstpart", 'wb') as outfile, \
+            open(f"{inputPath}.zstindex", 'wb') as indexfile:
+        dataPos = 0
+        compPos = 0
+
+        print("Training dictionary...")
+        zstdDict = trainDict()
+
+        # magic number to indicate index format.
+        indexfile.write(struct.pack('<QQ', 0x0f4b462afc1e47fc, 0xb6ee9b384955469b))
+        indexfile.write(zstdDict.dict_content)
+
+        try:
+            sharedDict = SharedMemory(create=True, size=len(zstdDict.dict_content))
+            sharedDict.buf[:] = zstdDict.dict_content
+            sharedDictName = sharedDict.name
+
+            totalChunks = os.path.getsize(inputPath) // pageSize
+            with multiprocessing.Pool(jobs or multiprocessing.cpu_count()) as pool:
+
+                args = ((chunk, sharedDictName) for chunk in iter(lambda: infile.read(pageSize), b''))
+                for i, (chunk, compressedChunk) in enumerate(pool.imap(compressChunkZstd, args, chunksize=100)):
+                    if i % (16*1024) == 0:
+                        print(f"{i / totalChunks * 100:.0f} % compressed")
+                    outfile.write(compressedChunk)
+                    indexfile.write(struct.pack('<LL', dataPos, compPos))
+                    dataPos += len(chunk)
+                    compPos += len(compressedChunk)
+
+                # write last index entry to simplify index reading logic.
+                indexfile.write(struct.pack('<LL', dataPos, compPos))
+        finally:
+            sharedDict.close()
+            sharedDict.unlink()
+
+
 @click.command()
 @click.argument("library", type=click.Path(dir_okay=False))
 @click.argument("outdir", type=click.Path(file_okay=False))
 @click.option("--ignoreoldstock", type=int, default=None,
-    help="Ignore components that weren't on stock for more than n days")
-def buildtables(library, outdir, ignoreoldstock):
+              help="Ignore components that weren't on stock for more than n days")
+@click.option("--jobs", type=int, default=1,
+              help="Number of parallel processes. Set to 0 to use all cores")
+@click.option("--pagesize", type=int, default=1024,
+              help="Page size for the compressed database")
+@click.option("--dictsize", type=int, default=16 * 1024,
+              help="Dictionary size for the compressed database")
+@click.option('--compression-algorithm', type=click.Choice(['zstd', 'gzip', 'none']),
+              default='zstd',
+              help="Compression algorithm to use")
+def buildtables(library, outdir, ignoreoldstock, jobs, pagesize, dictsize,
+                compression_algorithm):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
@@ -283,45 +494,70 @@ def buildtables(library, outdir, ignoreoldstock):
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)
 
-    categoryIndex = {}
-    with lib.startTransaction():
-        currentIdx = 0
-        total = lib.countCategories()
-        for catName, subcats in lib.categories().items():
-            # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
-            # components.
-            if catName.strip() == "":
-                continue
-            subcatIndex = {}
-            for subcatName in subcats:
-                # The same...
-                if subcatName.strip() == "":
-                    continue
-                currentIdx += 1
-                print(f"{((currentIdx) / total * 100):.2f} % {catName}: {subcatName}")
-                filebase = catName + subcatName
-                filebase = filebase.replace("&", "and").replace("/", "aka")
-                filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
+    outputDb = _sqlite_fast_cur(os.path.join(outdir, "index.sqlite3"))
+    outputDb.executescript(INIT_TABLES_SQL)
 
-                components = lib.getCategoryComponents(catName, subcatName, stockNewerThan=ignoreoldstock)
+    params = []
+    for (catName, subcategories) in lib.categories().items():
+        for subcatName in subcategories:
+            params.append(MapCategoryParams(
+                libraryPath=library, outdir=outdir, ignoreoldstock=ignoreoldstock,
+                catName=catName, subcatName=subcatName))
 
-                dataTable = buildDatatable(components)
-                dataTable.update({"category": catName, "subcategory": subcatName})
-                dataHash = saveJson(dataTable, os.path.join(outdir, f"{filebase}.json.gz"),
-                                    hash=True, compress=True)
+    total = lib.countCategories()
 
-                stockTable = buildStocktable(components)
-                stockHash = saveJson(stockTable, os.path.join(outdir, f"{filebase}.stock.json"), hash=True)
+    def report_progress(i, result):
+        if result is None:
+            return
+        catName, subcatName = result["catName"], result["subcatName"]
+        print(f"{((i) / total * 100):.1f} % {catName}: {subcatName}")
 
-                assert subcatName not in subcatIndex
-                subcatIndex[subcatName] = {
-                    "sourcename": filebase,
-                    "datahash": dataHash,
-                    "stockhash": stockHash
-                }
-            categoryIndex[catName] = subcatIndex
-    index = {
-        "categories": categoryIndex,
-        "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
-    }
-    saveJson(index, os.path.join(outdir, "index.json"), hash=True)
+    if jobs == 1:
+        # do everything in the main thread in this case to make debugging easier
+        for i, param in enumerate(params):
+            report_progress(i, _map_category(param))
+    else:
+        with multiprocessing.Pool(jobs or multiprocessing.cpu_count()) as pool:
+            for i, result in enumerate(pool.imap_unordered(_map_category, params)):
+                report_progress(i, result)
+
+    outputDb.execute(f"pragma page_size = {pagesize};")
+
+    # merge all databases
+    print("Merging databases...")
+    for i, filename in enumerate(os.listdir(outdir)):
+        if not filename.startswith("part_"):
+            continue
+        filepath = os.path.join(outdir, filename)
+        outputDb.execute(f"ATTACH DATABASE '{filepath}' AS db{i};")
+        # happens fully in native code and is very fast
+        outputDb.execute(f"INSERT INTO main.categories SELECT * FROM db{i}.categories;")
+        outputDb.execute(f"INSERT INTO main.component SELECT * FROM db{i}.component;")
+        outputDb.execute(f"DETACH DATABASE db{i};")
+        os.unlink(filepath)
+
+    print("Building indexes...")
+    # create indexes after all data is inserted to speed up the process
+    outputDb.executescript("""\
+CREATE INDEX component_mfr ON component (mfr);
+CREATE INDEX categories_category ON categories (category);
+CREATE INDEX categories_subcategory ON categories (subcategory);
+""")
+
+    # optimize db: https://github.com/phiresky/sql.js-httpvfs#usage
+    print("Optimizing database...")
+    outputDb.execute("pragma journal_mode = delete;")
+    outputDb.execute("vacuum;")
+    outputDb.connection.close()
+
+    print("Compressing database...")
+    if compression_algorithm == 'gzip':
+        pagedCompressFileGzip(
+            os.path.join(outdir, "index.sqlite3"),
+            pageSize=pagesize)
+    elif compression_algorithm == 'zstd':
+        pagedCompressFileZstd(
+            os.path.join(outdir, "index.sqlite3"),
+            pageSize=pagesize,
+            jobs=jobs,
+            dictSize=dictsize)

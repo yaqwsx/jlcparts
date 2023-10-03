@@ -124,6 +124,7 @@ class PartLibraryDb:
             self.conn.commit()
 
     def vacuum(self):
+        print(self.conn.execute(f"PRAGMA temp_store_directory;"))
         self.conn.execute("VACUUM")
 
     def resetFlag(self, value=0):

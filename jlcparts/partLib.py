@@ -124,6 +124,7 @@ class PartLibraryDb:
             self.conn.commit()
 
     def vacuum(self):
+        print(os.system("df -h"))
         print(self.conn.execute(f"PRAGMA temp_store_directory;"))
         self.conn.execute("VACUUM")
 

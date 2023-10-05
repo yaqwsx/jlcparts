@@ -58,7 +58,8 @@ def getLibrary(source, db, age, limit):
                 print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")
                 db.updateExtra(lcsc, extra)
         db.removeWithFlag(value=OLD)
-    db.vacuum()
+    # Temporary work-around for space-related issues in CI - simply don't rebuild the DB
+    # db.vacuum()
 
 
 @click.command()

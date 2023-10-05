@@ -7,7 +7,7 @@ on:
 jobs:
   build_and_update:
     name: "Update component database and frontend"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     environment: github-pages
     steps:
       - name: Checkout
@@ -76,20 +76,20 @@ jobs:
           retention-days: 14
   deploy:
     name: "Deploy"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build_and_update
     if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout # Required for GH-pages deployment
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: "Download web"
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: web_build
       - name: Untar artifact
         run: tar -xzf web_build.tar.gz
       - name: Deploy to GH Pages
-        uses: JamesIves/github-pages-deploy-action@4.1.0
+        uses: JamesIves/github-pages-deploy-action@v4.4.3
         with:
           branch: gh-pages
           folder: web/build

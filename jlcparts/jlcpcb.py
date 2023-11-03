@@ -9,6 +9,9 @@ JLCPCB_SECRET = os.environ.get("JLCPCB_SECRET")
 
 class JlcPcbInterface:
     def __init__(self, key: str, secret: str) -> None:
+        if (key is None) or (secret is None) or (key == "") or (secret == ""):
+            raise RuntimeError("Please set JLCPCB_KEY and JLCPCB_SECRET environment variables.")
+
         self.key = key
         self.secret = secret
         self.token = None

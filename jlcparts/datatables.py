@@ -324,7 +324,7 @@ def _map_category(val: MapCategoryParams):
     help="Number of parallel processes. Defaults to 1, set to 0 to use all cores")
 def buildtables(library, outdir, ignoreoldstock, jobs):
     """
-    Build datatables out of the LIBRARY and save them in OUTDIR
+    Build JSON files out of the LIBRARY (the sqlite database) and save them in OUTDIR.
     """
     lib = PartLibraryDb(library)
     Path(outdir).mkdir(parents=True, exist_ok=True)

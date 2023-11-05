@@ -137,6 +137,21 @@ def normalizeAttribute(key, value):
     assert isinstance(value, dict)
     return key, value
 
+def normalizeCapitalization(key):
+    """
+    Given a category name, normalize capitalization. We turn everything
+    lowercase, but some known substring (such as MOQ or MHz) replace back to the
+    correct capitalization
+    """
+    key = key.lower()
+    CAPITALIZATIONS = [
+        "Basic/Extended", "MHz", "GHz", "Hz", "MOQ"
+    ]
+    for capt in CAPITALIZATIONS:
+        key = key.replace(capt.lower(), capt)
+    key = key[0].upper() + key[1:]
+    return key
+
 def normalizeAttributeKey(key):
     """
     Takes a name of attribute and its value and returns a normalized key
@@ -170,7 +185,7 @@ def normalizeAttributeKey(key):
         key = "Lifetime @ Temperature"
     if key.startswith("Q @ Freq"):
         key = "Q @ Frequency"
-    return key
+    return normalizeCapitalization(key)
 
 def pullExtraAttributes(component):
     """

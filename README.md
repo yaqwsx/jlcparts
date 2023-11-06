@@ -81,6 +81,9 @@ $ mkdir -p web/public/data/
 $ jlcparts buildtables --jobs 0 --ignoreoldstock 30 cache.sqlite3 web/public/data
 ```
 
+To understand how the GH Actions generate the cache zip file, refer to the
+[update_components.yaml workflow](.github/workflows/update_components.yaml).
+
 To launch the frontend web server, run:
 
 ```bash

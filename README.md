@@ -52,8 +52,8 @@ hardware-related experiments.
 ## How Does It Work?
 
 The page has no backend so it can be easily hosted on GitHub Pages.
-Travis CI downloads the XLSX spreadsheet from the JLCPCB page, a Python script
-processes it, and it generates a per-category JSON file with components.
+GitHub Actions downloads the XLSX spreadsheet from the JLCPCB page, and then
+a Python script processes it and generates a per-category JSON file with components.
 
 The frontend uses IndexedDB in the browser to store the component library and
 perform queries on it. Therefore, before the first use, the page downloads the

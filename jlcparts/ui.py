@@ -22,7 +22,7 @@ def fetchLcscData(lcsc):
 def getLibrary(source, db, age, limit):
     """
     Download library inside OUTPUT (JSON format) based on SOURCE (csv table
-    provided by JLC PCB).
+    provided by JLCPCB).
 
     You can specify previously downloaded library as a cache to save requests to
     fetch LCSC extra data.
@@ -111,7 +111,7 @@ def fetchDetails(lcsc_code):
     help="Be verbose")
 def fetchTable(filename, verbose):
     """
-    Fetch JLC PCB component table
+    Fetch JLCPCB component table
     """
     from .jlcpcb import pullComponentTable
 

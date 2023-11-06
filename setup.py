@@ -11,7 +11,7 @@ setuptools.setup(
     version="0.1.0",
     author="Jan Mrázek",
     author_email="email@honzamrazek.cz",
-    description="Better view of JLC PCB parts",
+    description="Better view of JLCPCB parts",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/RoboticsBrno/JLCPCB-Parts",

@@ -144,13 +144,13 @@ def normalizeCapitalization(key):
     correct capitalization
     """
     key = key.lower()
-    key = key[0].upper() + key[1:]
 
     CAPITALIZATIONS = [
-        "MHz", "GHz", "Hz", "MOQ"
+        "Basic/Extended", "MHz", "GHz", "Hz", "MOQ"
     ]
     for capt in CAPITALIZATIONS:
         key = key.replace(capt.lower(), capt)
+    key = key[0].upper() + key[1:]
     return key
 
 def normalizeAttributeKey(key):

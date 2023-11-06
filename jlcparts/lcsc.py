@@ -11,6 +11,9 @@ LCSC_KEY = os.environ.get("LCSC_KEY")
 LCSC_SECRET = os.environ.get("LCSC_SECRET")
 
 def makeLcscRequest(url, payload=None):
+    if (LCSC_KEY is None) or (LCSC_SECRET is None) or (LCSC_KEY == "") or (LCSC_SECRET == ""):
+        raise RuntimeError("Please set LCSC_KEY and LCSC_SECRET environment variables.")
+
     if payload is None:
         payload = {}
     payload = [(key, value) for key, value in payload.items()]

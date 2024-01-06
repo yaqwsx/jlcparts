@@ -103,3 +103,27 @@ def pullComponentTable(filename: str, reporter: Callable[[int], None] = dummyRep
                 ])
             count += len(page)
             reporter(count)
+
+def pullPreferredParts():
+    resp = requests.get("https://jlcpcb.com/api/overseas-pcb-order/v1/getAll")
+    token = resp.cookies.get_dict()["XSRF-TOKEN"]
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-XSRF-TOKEN": token,
+    }
+    max_expected_count = 1000
+    body = {
+        "currentPage": 1,
+        "pageSize": max_expected_count,
+        "preferredComponentFlag": True
+    }
+
+    resp = requests.post(
+        "https://jlcpcb.com/api/overseas-pcb-order/v1/shoppingCart/smtGood/selectSmtComponentList",
+        headers=headers,
+        json=body
+    )
+
+    preferred_parts = resp.json()["data"]["componentPageInfo"]["list"]
+    return frozenset(x["componentCode"] for x in preferred_parts)

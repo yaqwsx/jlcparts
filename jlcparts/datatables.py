@@ -11,7 +11,10 @@ from pathlib import Path
 import click
 from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
+from jlcparts.jlcpcb import pullPreferredParts
 from jlcparts import attributes, descriptionAttributes
+
+preferred_parts = {}
 
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
@@ -193,8 +196,14 @@ def pullExtraAttributes(component):
     a dictionary
     """
     status = "Discontinued" if component["extra"] == {} else "Active"
+    if component["lcsc"] in preferred_parts:
+        part_type = "Preferred"
+    elif component["basic"]:
+        part_type = "Basic"
+    else:
+        part_type = "Extended"
     return {
-        "Basic/Extended": "Basic" if component["basic"] else "Extended",
+        "Basic/Extended": part_type,
         "Package": component["package"],
         "Status": status
     }
@@ -337,10 +346,17 @@ def _map_category(val: MapCategoryParams):
     help="Ignore components that weren't on stock for more than n days")
 @click.option("--jobs", type=int, default=1,
     help="Number of parallel processes. Defaults to 1, set to 0 to use all cores")
-def buildtables(library, outdir, ignoreoldstock, jobs):
+@click.option("--no-preferred", is_flag=True,
+    help="Don't lookup preferred parts")
+def buildtables(library, outdir, ignoreoldstock, jobs, no_preferred):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
+    if not no_preferred:
+        global preferred_parts
+        preferred_parts = pullPreferredParts()
+
+
     lib = PartLibraryDb(library)
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)

@@ -4,6 +4,7 @@ import json
 import click
 
 from jlcparts.datatables import buildtables, normalizeAttribute
+from jlcparts.lcsc import pullPreferredComponents
 from jlcparts.partLib import (PartLibrary, PartLibraryDb, getLcscExtraNew,
                               loadJlcTable, loadJlcTableLazy)
 
@@ -60,6 +61,18 @@ def getLibrary(source, db, age, limit):
         db.removeWithFlag(value=OLD)
     # Temporary work-around for space-related issues in CI - simply don't rebuild the DB
     # db.vacuum()
+
+
+
+@click.command()
+@click.argument("db", type=click.Path(dir_okay=False, writable=True))
+def updatePreferred(db):
+    """
+    Download list of preferred components from JLC PCB and mark them into the DB.
+    """
+    preferred = pullPreferredComponents()
+    lib = PartLibraryDb(db)
+    lib.setPreferred(preferred)
 
 
 @click.command()
@@ -152,6 +165,7 @@ cli.add_command(getLibrary)
 cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
+cli.add_command(updatePreferred)
 cli.add_command(fetchDetails)
 cli.add_command(fetchTable)
 cli.add_command(testComponent)

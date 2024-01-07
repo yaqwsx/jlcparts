@@ -193,8 +193,13 @@ def pullExtraAttributes(component):
     a dictionary
     """
     status = "Discontinued" if component["extra"] == {} else "Active"
+    type = "Extended"
+    if component["basic"]:
+        type = "Basic"
+    if component["preferred"]:
+        type = "Preferred"
     return {
-        "Basic/Extended": "Basic" if component["basic"] else "Extended",
+        "Basic/Extended": type,
         "Package": component["package"],
         "Status": status
     }

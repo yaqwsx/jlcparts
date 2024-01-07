@@ -35,6 +35,8 @@ def dbToComp(comp):
     comp["lcsc"] = lcscFromDb(comp["lcsc"])
     comp["price"] = json.loads(comp["price"])
     comp["extra"] = json.loads(comp["extra"])
+    comp["basic"] = bool(comp["basic"])
+    comp["preferred"] = bool(comp["preferred"])
     return comp
 
 class PartLibraryDb:
@@ -54,6 +56,7 @@ class PartLibraryDb:
                 joints INTEGER NOT NULL,
                 manufacturer_id INTEGER NOT NULL,
                 basic INTEGER NOT NULL,
+                preferred INTEGER NOT NULL DEFAULT 0,
                 description TEXT NOT NULL,
                 datasheet TEXT NOT NULL,
                 stock INTEGER NOT NULL,
@@ -64,11 +67,22 @@ class PartLibraryDb:
             )""")
 
         # Perform migration if we miss last on stock
-        columns = self.conn.execute("pragma table_info(components)")
+        migrated = False
+        columns = list(self.conn.execute("pragma table_info(components)"))
         if "last_on_stock" not in [x[1] for x in columns]:
             self.conn.execute("""
                 ALTER TABLE components ADD COLUMN last_on_stock INTEGER NOT NULL DEFAULT 0;
             """)
+            migrated = True
+
+        # Perform migration if we miss the preferred flag
+        if "preferred" not in [x[1] for x in columns]:
+            self.conn.execute("""
+                ALTER TABLE components ADD COLUMN preferred INTEGER NOT NULL DEFAULT 0;
+            """)
+            migrated = True
+
+        if migrated:
             self.conn.execute("DROP VIEW v_components")
 
         self.conn.execute("""
@@ -104,6 +118,7 @@ class PartLibraryDb:
                     c.joints AS joints,
                     m.name AS manufacturer,
                     c.basic AS basic,
+                    c.preferred as preferred,
                     c.description AS description,
                     c.datasheet AS datasheet,
                     c.stock AS stock,
@@ -292,6 +307,12 @@ class PartLibraryDb:
             """, data)
         self._commit()
 
+    def setPreferred(self, lcscSet):
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE components SET preferred = 0")
+        cursor.execute(f"UPDATE components SET preferred = 1 WHERE lcsc IN ({','.join(len(lcscSet) * ['?'])})",
+                       [lcscToDb(x) for x in lcscSet])
+        self._commit()
 
     def categories(self):
         res = {}

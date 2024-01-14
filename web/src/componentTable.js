@@ -9,7 +9,7 @@ import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
 import { AttritionInfo, getQuantityPrice } from "./jlc"
 import { naturalCompare } from '@discoveryjs/natural-compare';
-import { imageUrl, restoreLcscUrl } from './component'
+import { lcscCode, imageUrl, restoreLcscUrl } from './component'
 
 enableMapSet();
 
@@ -40,7 +40,7 @@ function attributeComparator(x, y, valueType) {
 
 function componentText(component) {
     return(
-        component.lcsc + " " +
+        lcscCode(component) + " " +
         component.mfr + " " +
         component.description
     ).toLocaleLowerCase();
@@ -353,7 +353,7 @@ export class ComponentOverview extends React.Component {
                     }
                     return <>
                         {discontinued}
-                        <CopyToClipboard text={x.lcsc}>
+                        <CopyToClipboard text={lcscCode(x)}>
                             <button className="py-2 px-4 pl-1" onClick={e => e.stopPropagation()}>
                                 <FontAwesomeIcon icon="clipboard"/>
                             </button>
@@ -363,11 +363,11 @@ export class ComponentOverview extends React.Component {
                             onClick={e => e.stopPropagation()}
                             target="_blank"
                             rel="noopener noreferrer">
-                                {x.lcsc}
+                                {lcscCode(x)}
                         </a>
                     </>
                 },
-                comparator: (a, b) => naturalCompare(a.lcsc, b.lcsc)
+                comparator: (a, b) => a.lcsc - b.lcsc
             },
             {
                 name: "Basic/Extended",
@@ -529,7 +529,7 @@ function ExpandedComponent(props) {
         <div className="w-full md:w-1/5 p-3">
             <img
                 src={imgSrc}
-                alt={`Component ${comp.lcsc}`}
+                alt={`Component ${lcscCode(comp)}`}
                 className="w-full mx-auto"
                 style={{
                     maxWidth: "250px"

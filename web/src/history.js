@@ -2,7 +2,7 @@ import React from 'react';
 import { fetchJson, db } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
          formatAttribute, findCategoryById } from './componentTable'
-import { imageUrl, restoreLcscUrl } from './component'
+import { lcscCode, imageUrl, restoreLcscUrl } from './component'
 import { getQuantityPrice } from './jlc'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
@@ -48,7 +48,7 @@ class HistoryItem extends React.Component {
                     onClick={e => e.stopPropagation()}
                     target="_blank"
                     rel="noopener noreferrer">
-                        {x.lcsc}
+                        {lcscCode(x)}
                 </a>
             </td>
             <td className="text-left">
@@ -84,7 +84,7 @@ class HistoryItem extends React.Component {
     renderUnknown() {
         return <tr className="text-center">
             <td className="text-left pl-2">
-                {this.props.lcsc}
+                {lcscCode(this.props)}
             </td>
             <td className="" colSpan={7}>
                 Component is missing in database. Do you use the latest database?
@@ -99,7 +99,7 @@ class HistoryItem extends React.Component {
             return this.renderUnknown();
         return <tr className="text-center">
             <td className="text-left pl-2">
-                {this.props.lcsc}
+                {lcscCode(this.props)}
             </td>
             <td className="" colSpan={7}>
                 <InlineSpinbox/>

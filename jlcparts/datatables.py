@@ -224,7 +224,10 @@ def extractComponent(component, schema):
     try:
         propertyList = []
         for schItem in schema:
-            if schItem == "attributes":
+            if schItem == "lcsc":
+                assert component["lcsc"][0] == "C"
+                propertyList.append(int(component["lcsc"][1:]))
+            elif schItem == "attributes":
                 # The cache might be in the old format
                 if "attributes" in component.get("extra", {}):
                     attr = component.get("extra", {}).get("attributes", {})
@@ -280,7 +283,7 @@ def buildDatatable(components):
     }
 
 def buildStocktable(components):
-    return {component["lcsc"]: component["stock"] for component in components }
+    return {component["lcsc"][1:]: component["stock"] for component in components}
 
 def clearDir(directory):
     """

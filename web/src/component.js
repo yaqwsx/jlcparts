@@ -1,3 +1,7 @@
+export function lcscCode(component) {
+    return "C" + component.lcsc;
+}
+
 export function imageUrl(component, size) {
     if (!component.img) {
         return null;
@@ -11,5 +15,5 @@ export function imageUrl(component, size) {
 }
 
 export function restoreLcscUrl(component) {
-    return `https://lcsc.com/product-detail/${component.slug}_${component.lcsc}.html`;
+    return `https://lcsc.com/product-detail/${component.slug}_${lcscCode(component)}.html`;
 }

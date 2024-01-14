@@ -1,8 +1,8 @@
 import React from 'react';
 import { fetchJson, db } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
-         formatAttribute, findCategoryById, getImageUrl,
-         restoreLcscUrl } from './componentTable'
+         formatAttribute, findCategoryById } from './componentTable'
+import { imageUrl, restoreLcscUrl } from './component'
 import { getQuantityPrice } from './jlc'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
@@ -26,7 +26,7 @@ class HistoryItem extends React.Component {
 
     renderImage() {
         let x = this.state.info;
-        const imgSrc = getImageUrl(x.img, "small") ?? "./brokenimage.svg";
+        const imgSrc = imageUrl(x, "small") ?? "./brokenimage.svg";
         return <ZoomableLazyImage
             height={90}
             width={90}
@@ -43,7 +43,7 @@ class HistoryItem extends React.Component {
         let category = findCategoryById(this.props.categories, x.category);
         return <tr>
             <td className="text-left pl-2">
-                <a href={restoreLcscUrl(x.url, x.lcsc)}
+                <a href={restoreLcscUrl(x)}
                     className="underline text-blue-600"
                     onClick={e => e.stopPropagation()}
                     target="_blank"

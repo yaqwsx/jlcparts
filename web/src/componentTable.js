@@ -9,6 +9,7 @@ import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
 import { AttritionInfo, getQuantityPrice } from "./jlc"
 import { naturalCompare } from '@discoveryjs/natural-compare';
+import { imageUrl, restoreLcscUrl } from './component'
 
 enableMapSet();
 
@@ -54,22 +55,6 @@ export function formatAttribute(attribute) {
         let value = attribute.values[name];
         return quantityFormatter(value[1])(value[0]);
     });
-}
-
-export function getImageUrl(img, size) {
-    if (!img) {
-        return null;
-    }
-    const sizeInPx = {
-        small: "96x96",
-        medium: "224x224",
-        big: "900x900"
-    }[size];
-    return `https://assets.lcsc.com/images/lcsc/${sizeInPx}/${img}`;
-}
-
-export function restoreLcscUrl(slug, lcsc) {
-    return `https://lcsc.com/product-detail/${slug}_${lcsc}.html`;
 }
 
 function valueFootprint(value) {
@@ -373,7 +358,7 @@ export class ComponentOverview extends React.Component {
                                 <FontAwesomeIcon icon="clipboard"/>
                             </button>
                         </CopyToClipboard>
-                        <a href={restoreLcscUrl(x.url, x.lcsc)}
+                        <a href={restoreLcscUrl(x)}
                             className="underline text-blue-600"
                             onClick={e => e.stopPropagation()}
                             target="_blank"
@@ -395,8 +380,8 @@ export class ComponentOverview extends React.Component {
                 name: "Image",
                 sortable: false,
                 displayGetter: x => {
-                    const imgSrc = getImageUrl(x.img, "small") ?? "./brokenimage.svg";
-                    const zoomImgSrc = getImageUrl(x.img, "big") ?? "./brokenimage.svg";
+                    const imgSrc = imageUrl(x, "small") ?? "./brokenimage.svg";
+                    const zoomImgSrc = imageUrl(x, "big") ?? "./brokenimage.svg";
                     return <ZoomableLazyImage
                         height={90}
                         width={90}
@@ -538,7 +523,7 @@ export function findCategoryById(categories, id) {
 
 function ExpandedComponent(props) {
     let comp = props.component;
-    const imgSrc = getImageUrl(comp.img, "big") ?? "./brokenimage.svg";
+    const imgSrc = imageUrl(comp, "big") ?? "./brokenimage.svg";
     let category = findCategoryById(props.categories, comp.category)
     return <div className="w-full flex flex-wrap pl-6">
         <div className="w-full md:w-1/5 p-3">

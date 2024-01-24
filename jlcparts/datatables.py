@@ -311,13 +311,15 @@ def _map_category(val: MapCategoryParams):
         return None
     if val.subcatName.strip() == "":
         return None
+    
+    lib = PartLibraryDb(val.libraryPath)
+    components = lib.getCategoryComponents(val.catName, val.subcatName, stockNewerThan=val.ignoreoldstock)
+    if not components:
+        return None
 
     filebase = val.catName + val.subcatName
     filebase = filebase.replace("&", "and").replace("/", "aka")
     filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
-
-    lib = PartLibraryDb(val.libraryPath)
-    components = lib.getCategoryComponents(val.catName, val.subcatName, stockNewerThan=val.ignoreoldstock)
 
     dataTable = buildDatatable(components)
     dataTable.update({"category": val.catName, "subcategory": val.subcatName})

@@ -333,7 +333,7 @@ export class ComponentOverview extends React.Component {
 
         let header = [
             {
-                name: "MFR (click for datasheet)",
+                name: "MFR",
                 sortable: true,
                 displayGetter: x => <>
                     <CopyToClipboard text={x.mfr}>
@@ -341,13 +341,18 @@ export class ComponentOverview extends React.Component {
                             <FontAwesomeIcon icon="clipboard"/>
                         </button>
                     </CopyToClipboard>
-                    <a
-                        href={x.datasheet}
-                        onClick={e => e.stopPropagation()}
-                        target="_blank"
-                        rel="noopener noreferrer">
-                            <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
-                    </a>
+                    {x.datasheet ? (
+                        <a
+                            href={x.datasheet}
+                            className="underline text-blue-600"
+                            onClick={e => e.stopPropagation()}
+                            target="_blank"
+                            rel="noopener noreferrer">
+                                <FontAwesomeIcon icon="file-pdf"/> {x.mfr}
+                        </a>
+                    ) : (
+                        x.mfr
+                    )}
                 </>,
                 comparator: (a, b) => naturalCompare(a.mfr, b.mfr),
                 className: "px-1 whitespace-no-wrap"

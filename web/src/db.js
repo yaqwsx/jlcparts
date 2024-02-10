@@ -106,17 +106,22 @@ export async function checkForComponentLibraryUpdate() {
 let allData = {
     filesPromise: null,
     fetchSingle: async function(url) {  // fetchs a single chunk of the combined files
-        const resp = await fetch(url);
-        if (resp.status === 200) {
-            const compressedData = await resp.arrayBuffer();
-            const data = pako.ungzip(compressedData);
-            const files = await untar(data.buffer);                            
-            const fileData = {};
-            for (const file of files) {
-                fileData[`${SOURCE_PATH}/${file.name}`.toLowerCase()] = file.buffer;
+        try {
+            const resp = await fetch(url);
+            if (resp.status === 200) {
+                const compressedData = await resp.arrayBuffer();
+                const data = pako.ungzip(compressedData);
+                const files = await untar(data.buffer);                            
+                const fileData = {};
+                for (const file of files) {
+                    fileData[`${SOURCE_PATH}/${file.name}`.toLowerCase()] = file.buffer;
+                }
+                return fileData;
+            } else {
+                return {};  // failed to download/unpack
             }
-            return fileData;
-        } else {
+        } catch (ex) {
+            console.log('Failed to fetch all-data.tar.gz', ex);
             return {};  // failed to download/unpack
         }
     },
@@ -137,10 +142,7 @@ let allData = {
                             resolve(null);
                         }
                     } catch(ex) {
-                        //reject(ex);
                         resolve(null);
-
-                        console.log('Failed to fetch all-data.tar.gz', ex);
                     }                
                 });
             }

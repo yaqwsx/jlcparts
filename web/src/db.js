@@ -1,5 +1,6 @@
 import Dexie from 'dexie';
 import * as pako from 'pako';
+import untar from "js-untar";
 
 if (!window.indexedDB) {
     alert("This page requires IndexedDB to work.\n" +
@@ -101,8 +102,76 @@ export async function checkForComponentLibraryUpdate() {
     return updateAvailable;
 }
 
+// contains data from all-data.tar.gz
+let allData = {
+    filesPromise: null,
+    fetch: async function(path, expectJson) {  // returns promise; resolves as data on success, and null on failure
+        return new Promise(async (resolve, reject) => {
+            if (this.filesPromise === null) {
+                this.filesPromise = new Promise(async (resolve, reject) => {
+                    try {
+                        const resp = await fetch(`${SOURCE_PATH}/all-data.tar.gz`);
+                        if (resp.status === 200) {
+                            const compressedData = await resp.arrayBuffer();
+                            const data = pako.ungzip(compressedData);
+                            const files = await untar(data.buffer);                            
+                            const fileData = {};
+                            for (const file of files) {
+                                fileData[`${SOURCE_PATH}/${file.name}`.toLowerCase()] = file.buffer;
+                            }
+                            //console.log('Got all data', fileData);
+                            resolve(fileData);
+                        } else {
+                            //reject('Bad fetch of all-data');
+                            resolve(null);
+                        }
+                    } catch(ex) {
+                        //reject(ex);
+                        resolve(null);
+
+                        console.log('Failed to fetch all-data.tar.gz', ex);
+                    }                
+                });
+            }
+
+            const files = await this.filesPromise;
+
+            if (files) {
+                const fileData = files[path.toLowerCase()];
+                if (fileData){
+                    if (expectJson) {
+                        if (path.slice(-3) === '.gz') {
+                            resolve(JSON.parse(pako.ungzip(fileData, {to: 'string'})));
+                        } else {
+                            const decoder = new TextDecoder();
+                            resolve(JSON.parse(decoder.decode(fileData)));
+                        }
+                    } else {
+                        const decoder = new TextDecoder();
+                        resolve(decoder.decode(fileData));
+                    }
+                } else {
+                    //reject(`${path} not found`);
+                    resolve(null);
+                }
+            } else {
+                //reject('All data not available');
+                resolve(null);
+            }
+        });
+    }
+}; 
+
 // Fetch a JSON. If error occures,
 export async function fetchJson(path, errorIntro) {
+    if (path.indexOf('/index.json') < 0) {
+        // try from all data combined file first
+        const data = await allData.fetch(path, true);
+        if (data) {
+            return data;
+        }
+    }
+
     let response = await fetch(path);
     if (!response.ok) {
         throw Error(errorIntro + response.statusText);
@@ -131,6 +200,12 @@ export async function fetchJson(path, errorIntro) {
 }
 
 async function fetchText(path, errorIntro) {
+    // try from all data combined file first
+    const data = await allData.fetch(path, false);
+    if (data) {
+        return data;
+    }
+
     let response = await fetch(path);
     if (!response.ok) {
         throw Error(errorIntro + response.statusText);

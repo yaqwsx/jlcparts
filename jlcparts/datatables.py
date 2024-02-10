@@ -15,6 +15,7 @@ from jlcparts import attributes, descriptionAttributes
 
 import tarfile
 import glob
+import random
 
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
@@ -32,10 +33,14 @@ def saveJson(object, filename, hash=False, pretty=False, compress=False):
 def saveAllDataArchive(path):
     patterns = ['*.json', '*.json.gz', '*.sha256']
 
-    with tarfile.open(os.path.join(path, 'all-data.tar.gz'), 'w:gz') as tar:
-        for pattern in patterns:
-            for file in glob.glob(os.path.join(path, pattern)):
-                tar.add(file, arcname=os.path.relpath(file, start=path))
+    with tarfile.open(os.path.join(path, 'all-data-1.tar.gz'), 'w:gz') as tar1:
+        with tarfile.open(os.path.join(path, 'all-data-2.tar.gz'), 'w:gz') as tar2:
+            for pattern in patterns:
+                for file in glob.glob(os.path.join(path, pattern)):
+                    if random.randint(1, 2) == 1:
+                        tar1.add(file, arcname=os.path.relpath(file, start=path))
+                    else:
+                        tar2.add(file, arcname=os.path.relpath(file, start=path))
 
 def weakUpdateParameters(attrs, newParameters):
     for attr, value in newParameters.items():

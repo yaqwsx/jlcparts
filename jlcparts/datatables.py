@@ -13,6 +13,9 @@ from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
 
+import tarfile
+import glob
+
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
     with openFn(filename, "wt", encoding="utf-8") as f:
@@ -25,6 +28,14 @@ def saveJson(object, filename, hash=False, pretty=False, compress=False):
             hash = sha256file(filename)
             f.write(hash)
         return hash
+    
+def saveAllDataArchive(path):
+    patterns = ['*.json', '*.json.gz', '*.sha256']
+
+    with tarfile.open(os.path.join(path, 'all-data.tar.gz'), 'w:gz') as tar:
+        for pattern in patterns:
+            for file in glob.glob(os.path.join(path, pattern)):
+                tar.add(file, arcname=os.path.relpath(file, start=path))
 
 def weakUpdateParameters(attrs, newParameters):
     for attr, value in newParameters.items():
@@ -382,3 +393,4 @@ def buildtables(library, outdir, ignoreoldstock, jobs):
         "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
     }
     saveJson(index, os.path.join(outdir, "index.json"), hash=True)
+    saveAllDataArchive(outdir)

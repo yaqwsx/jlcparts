@@ -105,24 +105,35 @@ export async function checkForComponentLibraryUpdate() {
 // contains data from all-data.tar.gz
 let allData = {
     filesPromise: null,
+    fetchSingle: async function(url) {  // fetchs a single chunk of the combined files
+        const resp = await fetch(url);
+        if (resp.status === 200) {
+            const compressedData = await resp.arrayBuffer();
+            const data = pako.ungzip(compressedData);
+            const files = await untar(data.buffer);                            
+            const fileData = {};
+            for (const file of files) {
+                fileData[`${SOURCE_PATH}/${file.name}`.toLowerCase()] = file.buffer;
+            }
+            return fileData;
+        } else {
+            return {};  // failed to download/unpack
+        }
+    },
     fetch: async function(path, expectJson) {  // returns promise; resolves as data on success, and null on failure
         return new Promise(async (resolve, reject) => {
             if (this.filesPromise === null) {
                 this.filesPromise = new Promise(async (resolve, reject) => {
                     try {
-                        const resp = await fetch(`${SOURCE_PATH}/all-data.tar.gz`);
-                        if (resp.status === 200) {
-                            const compressedData = await resp.arrayBuffer();
-                            const data = pako.ungzip(compressedData);
-                            const files = await untar(data.buffer);                            
-                            const fileData = {};
-                            for (const file of files) {
-                                fileData[`${SOURCE_PATH}/${file.name}`.toLowerCase()] = file.buffer;
-                            }
-                            //console.log('Got all data', fileData);
-                            resolve(fileData);
+                        const ChunkCount = 2;
+                        let data = {};
+                        for (let i = 0; i < ChunkCount; i++) {
+                            Object.assign(data, await this.fetchSingle(`${SOURCE_PATH}/all-data-${i + 1}.tar.gz`));
+                        }
+
+                        if (Object.keys(data).length > 0) {
+                            resolve(data);
                         } else {
-                            //reject('Bad fetch of all-data');
                             resolve(null);
                         }
                     } catch(ex) {

@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { unpackAndProcessLines, unpackLinesAsArray} from "./db";
 import React from "react";
 import { produce, enableMapSet } from "immer";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -161,14 +161,27 @@ export class ComponentOverview extends React.Component {
     }
 
     componentDidMount() {
-        db.categories.toArray().then( categories => {
-            this.setState({
-                categories: this.prepareCategories(categories),
-                rawCategories: categories
-            });
-        })
-    }
+        (async () => {
+            // generate categories array
+            let subCats = (await unpackLinesAsArray('subcategories')).map(str => JSON.parse(str));
 
+            let schema = subCats[0];    // first entry is always the schema lookup
+            let cats = subCats.filter((sc, i) => i > 0).map((sc, id) => ({
+                id: id + 1,
+                category: sc[schema.category],
+                subcategory: sc[schema.subcategory],
+                sourcename: sc[schema.sourcename],
+                stockhash: 0,   // not needed
+                datahash: 0     // not needed
+            }));
+
+            this.setState({
+                categories: this.prepareCategories(cats),
+                rawCategories: cats
+            });
+        })();
+    }
+    
     prepareCategories(sourceCategories) {
         let categories = {};
         for (const category of sourceCategories) {
@@ -640,32 +653,84 @@ class CategoryFilter extends React.Component {
     // full-text search
     async components() {
         this.state.abort();
-        let query;
+
+        let categoryFilter = (cat) => true;
+        
         if (this.state.allCategories) {
             if (this.state.searchString.length < 3) { // prevent high ram usage
                 return [];
             }
-            query = db.components;
         }
-        else
-            query = db.components.where("category").anyOf(this.collectActiveCategories());
-
+        else {
+            const catIds = this.collectActiveCategories();
+            const catIdLookup = new Set(catIds);
+            categoryFilter = (catid) => catIdLookup.has(catid);
+        }
+        
+        let results = [];
+        let words = [];
         if (this.state.searchString.length !== 0) {
-            const words = this.state.searchString.split(/\s+/)
+            words = this.state.searchString.split(/\s+/)
                 .filter(x => x.length > 0)
                 .map(x => x.toLocaleLowerCase());
-            if (words.length > 0) {
-                query = query.filter(component => {
-                    const text = componentText(component);
-                    return words.every(word => text.includes(word));
-                });
-            }
         }
 
         let aborted = false;
         this.setState({abort: () => aborted = true});
-        const components = await query.until(() => aborted).toArray();
-        return aborted ? null : components;
+
+        let schema;
+        await unpackAndProcessLines('components', (comp, idx) => {
+            comp = JSON.parse(comp);
+
+            if (idx === 0) {    // first line is always schema lookup
+                schema = comp;
+            } else {
+                if (categoryFilter(comp[schema.subcategoryIdx])) {
+                    let component = {
+                        lcsc: comp[schema.lcsc], 
+                        mfr: comp[schema.mfr], 
+                        description: comp[schema.description],
+                        attrsIdx: comp[schema.attrsIdx],
+                        stock: comp[schema.stock],
+                        category: comp[schema.subcategoryIdx],
+                        componentIdx: idx,
+                        joints: comp[schema.joints],
+                        datasheet: comp[schema.datasheet],
+                        price: comp[schema.price],
+                        img: comp[schema.img],
+                        url: comp[schema.url]
+                    };
+
+                    if (words.length > 0) {
+                        const text = componentText(component);
+                        if(words.every(word => text.includes(word))) {
+                            results.push(component);
+                        }
+                    } else {
+                        results.push(component);
+                    }
+                }
+            }
+        }, () => aborted);
+
+        if (aborted) {
+            return null;
+        }
+
+        if (results.length > 0) {
+            let resultLookup = {};
+            results.forEach(res => resultLookup[res.componentIdx] = res);
+
+            const attributesLut = await unpackLinesAsArray('attributes-lut');
+            results.forEach(res => {
+                res.attributes = {}; 
+                res.attrsIdx.map(idx => JSON.parse(attributesLut[idx])).forEach(entry => {
+                    res.attributes[entry[0]] = entry[1];
+                });
+            });
+        }
+
+        return results;
     }
 
     handleCategoryChange = (category, value) => {

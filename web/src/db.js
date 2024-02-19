@@ -12,10 +12,9 @@ return await navigator.storage?.persist?.();
 }
 
 export const db = new Dexie('jlcparts');
-db.version(1).stores({
+db.version(2).stores({
     settings: 'key',
-    components: 'lcsc, category, mfr, *indexWords',
-    categories: 'id++,[category+subcategory], subcategory, category'
+    jsonlines: 'name'
 });
 
 function extractCategoryKey(category) {
@@ -24,10 +23,141 @@ function extractCategoryKey(category) {
 
 const SOURCE_PATH = "data";
 
+let jsonlines = {}; // copy of the database in memory so we only access the database once (doesn't really matter - it would be pretty fast anyway)
+async function getJsonlines() {
+    if (Object.keys(jsonlines).length === 0) {
+        (await db.jsonlines.toArray()).forEach(obj => {
+            jsonlines[obj.name] = obj.compressedData
+        });
+    }
+    return jsonlines;
+}
+
+export async function haveComponents() {
+    await getJsonlines();
+    return jsonlines['components']?.size;   // TODO: check if this should be .length
+}
+
+export async function unpackLinesAsArray(name) {    
+    let arr = [];
+    await unpackAndProcessLines(name, (val, idx) => arr.push(val));
+    return arr;
+}
+
+async function yieldExec() {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => resolve(), 0);
+    });
+}
+
+export async function unpackAndProcessLines(name, callback, checkAbort) {
+    await getJsonlines();
+
+    if (jsonlines[name] === undefined) {
+        return;
+    }
+
+    let time = new Date().getTime();
+    
+    if (!window.DecompressionStream) {
+        console.error("DecompressionStream is not supported in this environment.");
+        return;
+    }
+
+    // Step 1: Create a DecompressionStream for gzip
+    const decompressionStream = new window.DecompressionStream('gzip');
+
+    // Convert the ArrayBuffer to a ReadableStream
+    const inputStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(jsonlines[name]);
+            controller.close();
+        },
+    });
+
+    // Pipe the input stream through the decompression stream
+    const decompressedStream = inputStream.pipeThrough(decompressionStream);
+
+    // Step 2: Convert the stream into text
+    const textStream = decompressedStream.pipeThrough(new window.TextDecoderStream());
+
+    // Step 3: Create a reader to read the stream line by line
+    const reader = textStream.getReader();
+    let chunk = '';
+    let idx = 0;
+    let lastYield = new Date().getTime();
+
+    try {
+        while (true) {
+            const now = new Date().getTime();
+
+            // Periodically allow UI to do what it needs to, including updating any abort flag.
+            // This does slow down the this function a variable amount (could be <100ms, could be a few seconds) 
+            if (now - lastYield > 300) {
+                await yieldExec();
+                console.log('yielded for ', new Date().getTime() - now, 'ms');
+                lastYield = new Date().getTime();
+
+                if (checkAbort && checkAbort()) {   // check abort flag
+                    break;
+                }
+            }
+            
+
+            const { done, value } = await reader.read();
+            if (done) {
+                // If there's any remaining line, process it as well -- should never happen
+                if (chunk) {
+                    callback(chunk, idx++);
+                }
+                break;
+            }
+
+            // Decode the chunk to a string
+            chunk += value;
+
+            let start = 0;
+            while(true) {
+                let pos = chunk.indexOf('\n', start);
+                if (pos >= 0) {
+                    if (callback(chunk.slice(start, pos), idx++) === 'abort') {
+                        break;  // quit early
+                    }
+                    start = pos + 1;
+                } else {                    
+                    chunk = chunk.slice(start); // dump everything that we've processed
+                    break;  // no more lines in our chunk
+                }
+            }
+        }
+
+        console.log(`Time to gunzip & segment ${name}: ${new Date().getTime() - time}`);
+    } finally {
+        reader.releaseLock();
+    }
+}
+
 // Updates the whole component library, takes a callback for reporting progress:
 // the progress is given as list of tuples (task, [statusMessage, finished])
 export async function updateComponentLibrary(report) {
     await persist();
+
+    // get new db files
+    const resp = await fetch(`${SOURCE_PATH}/all.jsonlines.tar`);
+    if (resp.status === 200) {
+        const data = await resp.arrayBuffer();
+        const files = await untar(data);
+        for (const file of files) {
+            const basename = file.name.split('.')[0];
+            let result = await db.jsonlines.put({name: basename, compressedData: file.buffer});
+            console.log(result);
+
+            // store copy in memory (we can load from indexeddb on startup)
+            jsonlines[basename] = file.buffer;
+        }
+    }
+
+
     report({"Component index": ["fetching", false]})
     let index = await fetchJson(`${SOURCE_PATH}/index.json`,
         "Cannot fetch categories index: ");

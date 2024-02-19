@@ -57,7 +57,6 @@ export async function unpackAndProcessLines(name, callback, checkAbort) {
         return;
     }
 
-    // Step 1: Create a DecompressionStream for gzip
     const decompressionStream = new window.DecompressionStream('gzip');
 
     // Convert the ArrayBuffer to a ReadableStream
@@ -71,11 +70,10 @@ export async function unpackAndProcessLines(name, callback, checkAbort) {
     // Pipe the input stream through the decompression stream
     const decompressedStream = inputStream.pipeThrough(decompressionStream);
 
-    // Step 2: Convert the stream into text
+    // Convert the stream into text
     const textStream = decompressedStream.pipeThrough(new window.TextDecoderStream());
 
-    // Step 3: Create a reader to read the stream line by line
-    const reader = textStream.getReader();
+    const reader = textStream.getReader();  // to read chunks of text from stream
     let chunk = '';
     let idx = 0;
     let lastYield = new Date().getTime();
@@ -106,7 +104,6 @@ export async function unpackAndProcessLines(name, callback, checkAbort) {
                 break;
             }
 
-            // Decode the chunk to a string
             chunk += value;
 
             let start = 0;

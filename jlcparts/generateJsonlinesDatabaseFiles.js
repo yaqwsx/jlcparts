@@ -3,7 +3,7 @@ This program loads all the category/stock *.json.gz and *.stock.json files and c
 into three files, whose contents are a single JSON object per line:
     - attributes-lut.jsonlines  - each line is an attribute, and components will contain a list of attribute indices (the index is the line number)
     - subcategories.jsonlines   - each line is a subcategory
-    - components.jsonlines      - each line is a component; references attributes and subcategory by there line number
+    - components.jsonlines      - each line is a component; references attributes and subcategory by their line number
 
 These files are then packaged into a .tar file, allowing a single file to be downloaded to update the entire database with new components and stock levels.
 This reprocessing program is a bit slow, and takes of the order of 10 minutes.

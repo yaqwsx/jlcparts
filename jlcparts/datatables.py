@@ -13,10 +13,6 @@ from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
 
-import tarfile
-import glob
-import random
-
 def saveJson(object, filename, hash=False, pretty=False, compress=False):
     openFn = gzip.open if compress else open
     with openFn(filename, "wt", encoding="utf-8") as f:
@@ -29,7 +25,7 @@ def saveJson(object, filename, hash=False, pretty=False, compress=False):
             hash = sha256file(filename)
             f.write(hash)
         return hash
-    
+
 def weakUpdateParameters(attrs, newParameters):
     for attr, value in newParameters.items():
         if attr in attrs and attrs[attr] not in ["", "-"]:

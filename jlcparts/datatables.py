@@ -30,18 +30,6 @@ def saveJson(object, filename, hash=False, pretty=False, compress=False):
             f.write(hash)
         return hash
     
-def saveAllDataArchive(path):
-    patterns = ['*.json', '*.json.gz', '*.sha256']
-
-    with tarfile.open(os.path.join(path, 'all-data-1.tar.gz'), 'w:gz') as tar1:
-        with tarfile.open(os.path.join(path, 'all-data-2.tar.gz'), 'w:gz') as tar2:
-            for pattern in patterns:
-                for file in glob.glob(os.path.join(path, pattern)):
-                    if random.randint(1, 2) == 1:
-                        tar1.add(file, arcname=os.path.relpath(file, start=path))
-                    else:
-                        tar2.add(file, arcname=os.path.relpath(file, start=path))
-
 def weakUpdateParameters(attrs, newParameters):
     for attr, value in newParameters.items():
         if attr in attrs and attrs[attr] not in ["", "-"]:
@@ -398,4 +386,3 @@ def buildtables(library, outdir, ignoreoldstock, jobs):
         "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
     }
     saveJson(index, os.path.join(outdir, "index.json"), hash=True)
-    saveAllDataArchive(outdir)

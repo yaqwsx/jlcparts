@@ -61,6 +61,9 @@ jobs:
 
           rm -f web/build/data/cache.z*
           zip -s 50m web/build/data/cache.zip cache.sqlite3
+
+          node generateJsonlinesDatabaseFiles.js
+          
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact

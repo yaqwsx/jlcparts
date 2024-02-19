@@ -77,6 +77,7 @@ $ wget https://yaqwsx.github.io/jlcparts/data/cache.zip https://yaqwsx.github.io
 $ 7z x cache.zip
 $ mkdir -p web/public/data/
 $ jlcparts buildtables --jobs 0 --ignoreoldstock 30 cache.sqlite3 web/public/data
+$ node generateJsonlinesDatabaseFiles.js
 ```
 
 To launch the frontend web server, run:

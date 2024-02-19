@@ -144,7 +144,7 @@ export async function updateComponentLibrary(report) {
     const resp = await fetch(dbWebPath);
     if (resp.status === 200) {
         const data = await resp.arrayBuffer();
-        updateProgress(downloadingTitle, ["OK", false]);
+        updateProgress(downloadingTitle, ["OK", true]);
 
         const untarTitle = `Updating database`;
         updateProgress(untarTitle, ["In progress", false]);

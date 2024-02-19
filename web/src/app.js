@@ -13,7 +13,7 @@ import { far } from '@fortawesome/free-regular-svg-icons'
 import { fab } from '@fortawesome/free-brands-svg-icons'
 
 import './main.css';
-import { updateComponentLibrary, checkForComponentLibraryUpdate, db, unpackLinesAsArray, haveComponents } from './db'
+import { updateComponentLibrary, checkForComponentLibraryUpdate, db, unpackLinesAsArray } from './db'
 import { ComponentOverview } from './componentTable'
 import { History } from './history'
 
@@ -81,7 +81,7 @@ class FirstTimeNote extends React.Component {
 
   componentDidMount() {
     unpackLinesAsArray('components').then(components => {
-      this.setState({componentCount: components.length - 1});   // don't count the schema entry
+      this.setState({componentCount: Math.max(0, components.length - 1)});   // don't count the schema entry
     })
   }
 
@@ -145,7 +145,7 @@ class UpdateBar extends React.Component {
         this.setState({updateAvailable});
       });
       db.settings.get("lastUpdate").then(lastUpdate => {
-        this.setState({lastUpdate});
+        this.setState({lastUpdate: lastUpdate?.value});
       })
     };
 

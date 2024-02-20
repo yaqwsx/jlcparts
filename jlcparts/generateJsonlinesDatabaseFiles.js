@@ -6,7 +6,6 @@ into three files, whose contents are a single JSON object per line:
     - components.jsonlines      - each line is a component; references attributes and subcategory by their line number
 
 These files are then packaged into a .tar file, allowing a single file to be downloaded to update the entire database with new components and stock levels.
-This reprocessing program is a bit slow, and takes of the order of 10 minutes.
 */
 
 const fs = require('fs');
@@ -15,9 +14,8 @@ const zlib = require("zlib");
 const process = require('process');
 const { execSync } = require('child_process');
 
-const dataPath = 'web/public/data';
 
-try{process.chdir('web/..');}catch(ex){}   // debug path is 'web/..'
+const dataPath = ['web/build/data', 'web/public/data', '../web/public/data'].filter(f => fs.existsSync(f))[0];
 
 function foreachJsonFile(directory, processFunc) {
     try {
@@ -56,19 +54,25 @@ let database = {
     subcategories: [schemaToLookup(['subcategory', 'category', 'sourcename'])],
     components: [schemaToLookup(['lcsc', 'mfr', 'description', 'attrsIdx', 'stock', 'subcategoryIdx', 'joints', 'datasheet', 'price', 'img', 'url'])],
 
-    attributesLut: [],  // this is a list of unique attributes; position is used as the attribute index
+    attributesLut: new Map(),  // this is a list of unique attributes; each new entry gets a new index. Using a Map here instead of an object gives 40x processing speedup
     stock: {}   // this is just a temporary lookup to help generate the components table
 };
 
 // adds the obj to the lut, and returns the index
-function updateLut(lut, obj) {
-    return lut[JSON.stringify(obj)] ??= Object.keys(lut).length;
-}
+function updateLut(entryMap, entry) {
+    const entryKey = JSON.stringify(entry);
+    if (!entryMap.has(entryKey)) {
+        const index = entryMap.size;
+        entryMap.set(entryKey, index);
+        return index;
+    }
+    return entryMap.get(entryKey);
+  }
 
-// Inverts the lut so that the object becomes an array, with the key being the value.
+// Inverts the lut so that the Map becomes an array, with the key being the value.
 // Values must be 0-based, numeric, and contiguous, or everything will be wrong.
-function lutToArray(lut) {
-    return Object.entries(lut).sort((a, b) => a[1] - b[1]).map(x => x[0] ? JSON.parse(x[0]) : null);
+function lutToArray(lutMap) {
+    return Array.from(lutMap.entries()).sort((a, b) => a[1] - b[1]).map(x => x[0]);
 }
 
 function schemaToLookup(arr) {
@@ -134,8 +138,8 @@ function writeOutputFile(name, str) {
 }
 writeOutputFile(`${dataPath}/subcategories.jsonlines`, database.subcategories.map(d => JSON.stringify(d)).join('\n'));
 writeOutputFile(`${dataPath}/components.jsonlines`, database.components.map(d => JSON.stringify(d)).join('\n'));
-writeOutputFile(`${dataPath}/attributes-lut.jsonlines`, lutToArray(database.attributesLut).map(d => JSON.stringify(d)).join('\n'));
+writeOutputFile(`${dataPath}/attributes-lut.jsonlines`, lutToArray(database.attributesLut).join('\n'));
 
 execSync(`(cd ${dataPath} && tar -cf all.jsonlines.tar *.jsonlines.gz)`);
 
-console.log(`Reprocessing took ${Math.round((new Date().getTime() - startTime) / 6000) / 10} minutes`);
+console.log(`Reprocessing took ${Math.round((new Date().getTime() - startTime) / 1000)} seconds`);

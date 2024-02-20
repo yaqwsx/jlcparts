@@ -718,9 +718,6 @@ class CategoryFilter extends React.Component {
         }
 
         if (results.length > 0) {
-            let resultLookup = {};
-            results.forEach(res => resultLookup[res.componentIdx] = res);
-
             const attributesLut = await unpackLinesAsArray('attributes-lut');
             results.forEach(res => {
                 res.attributes = {}; 

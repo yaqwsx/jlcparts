@@ -201,7 +201,9 @@ export class ComponentOverview extends React.Component {
             for (const property in attributes) {
                 properties[property] ??= {};
                 let val = attributes[property];
-                properties[property][valueFootprint(val)] = val;
+                let valKey = valueFootprint(val);
+                let componentCount = (properties[property][valKey]?.componentCount || 0) + 1
+                properties[property][valKey] = {value: val, componentCount};
             }
         }
 
@@ -209,7 +211,7 @@ export class ComponentOverview extends React.Component {
         for (const property in properties) {
             if (Object.keys(properties[property]).length <= 1)
                 continue;
-            let values = Object.entries(properties[property]).map(x => ({key: x[0], value: x[1]}));
+            let values = Object.entries(properties[property]).map(x => ({key: x[0], value: x[1].value, componentCount: x[1].componentCount}));
             propertiesList.push({property, values});
         }
         propertiesList.sort((a, b) => a.property.localeCompare(b.property));
@@ -824,8 +826,9 @@ class MultiSelectBox extends React.Component {
                         style={selectStyle}
                         value={this.props.value} onChange={this.handleSelectChange}>
                     {this.props.options.map(option => {
-                        return <option value={option.key} key={option.key} title={option.value}>
-                                    {option.value}
+                        const text = option.value + (option.componentCount ? ` (${option.componentCount})` : '');
+                        return <option value={option.key} key={option.key} title={text}>
+                                    {text}
                             </option>;
                     })}
                 </select>
@@ -868,7 +871,8 @@ class PropertySelector extends React.Component {
         })
         return options.map(x => ({
             key: x.key,
-            value: formatAttribute(x.value)
+            value: formatAttribute(x.value),
+            componentCount: x.componentCount
         }));
     }
 

@@ -156,7 +156,8 @@ export class ComponentOverview extends React.Component {
             expectedComponentsVersion: 0,
             componentsVersion: 0,
             tableIncludedProperties: new Set(),
-            quantity: 1
+            quantity: 1,
+            matchSubcats: true
         };
     }
 
@@ -302,12 +303,19 @@ export class ComponentOverview extends React.Component {
         this.setState({stockRequired: stockRequired});
     }
 
+    handleMatchSubcats = (doMatch) => {
+        this.setState({matchSubcats: !!doMatch});
+    }
+
     render() {
         let filterComponents = <>
             <CategoryFilter
                 categories={this.state.categories}
                 onChange={this.handleComponentsChange}
-                onAnnounceChange={this.handleStartComponentsChange}/>
+                onAnnounceChange={this.handleStartComponentsChange}
+                matchSubcats={this.state.matchSubcats}
+                onMatchSubcats={this.handleMatchSubcats}
+                />
             <PropertySelect
                 properties={this.collectProperties(this.state.components)}
                 values={this.state.activeProperties}
@@ -670,10 +678,78 @@ class CategoryFilter extends React.Component {
 
     handleCategoryChange = (category, value) => {
         console.log("Category change");
-        this.setState(produce(this.state, draft => {
-            draft.categories[category] = value.map(n => parseInt(n));
-            draft.allCategories = false;
-        }), this.notifyParent);
+        if (this.props.matchSubcats) {
+            this.setState(produce(this.state, draft => {
+                const t0 = performance.now();
+
+                // find selection changes
+                let oldValue = (draft.categories[category] || []).map(n => n);
+                let newValue = value.map(n => parseInt(n));
+
+                let toRemove = new Set();
+                for (const id of oldValue) {
+                    if (newValue.indexOf(id) < 0) {
+                        toRemove.add(id);
+                    }
+                }
+
+                let toAdd = new Set();
+                for (const id of newValue) {
+                    if (oldValue.indexOf(id) < 0) {
+                        toAdd.add(id);
+                    }
+                }
+
+                // we have the ids. we need to get the subcategory names.
+                const subcatIds = new Map();
+                const subcatNames = [];
+                for (const catentry of this.props.categories) {
+                    for (const subcatEntry of catentry.subcategories) {
+                        subcatIds[subcatEntry.value] ??= [];
+                        subcatIds[subcatEntry.value].push(subcatEntry.key);
+
+                        subcatNames[subcatEntry.key] = subcatEntry.value;
+                    }
+                }
+
+                // find duplicate subcategory names across all categories
+                for (const id of Array.from(toRemove)) {
+                    const idList = subcatIds[subcatNames[id]];
+                    toRemove = toRemove.union(new Set(idList));
+                }
+
+                for (const id of Array.from(toAdd)) {
+                    const idList = subcatIds[subcatNames[id]];
+                    toAdd = toAdd.union(new Set(idList));
+                }
+
+                // modify all of them
+                for (const catentry of this.props.categories) {
+                    let updatedValue = new Set(draft.categories[catentry.category]);
+                    const add = new Set(catentry.subcategories.map(sc => sc.key)).intersection(toAdd);
+                    for (const x of add) {
+                        updatedValue.add(x);
+                    }
+                    const remove = new Set(catentry.subcategories.map(sc => sc.key)).intersection(toRemove);
+                    for (const x of remove) {
+                        updatedValue.delete(x);
+                    }
+
+                    if (add.size > 0 || remove.size > 0) {
+                        draft.categories[catentry.category] = Array.from(updatedValue);
+                    }
+                }
+
+                draft.allCategories = false;
+
+                console.log(`Selected ${toAdd.size} subcategories, deselected ${toRemove.size} subcategories. Took ${performance.now() - t0} ms`);    // takes ~1ms
+            }), this.notifyParent);
+        } else {
+            this.setState(produce(this.state, draft => {
+                draft.categories[category] = value.map(n => parseInt(n));
+                draft.allCategories = false;
+            }), this.notifyParent);
+        }
     }
 
     selectAll = state => {
@@ -726,6 +802,12 @@ class CategoryFilter extends React.Component {
                 <h3 className="block flex-1 text-lg mx-2 font-bold" id="category-select">
                     <span className="text-bold text-red-500">⛶</span> Select category
                 </h3>
+                <div className="py-1">
+                    <input className="mr-2 leading-tight" type="checkbox" checked={this.props.matchSubcats}
+                        onChange={e => {
+                            this.props.onMatchSubcats(e.target.checked); } } />
+                    Include all matching subcategories
+                </div>
                 <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectAll}>
                     Select all categories
                 </button>

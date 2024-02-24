@@ -167,10 +167,10 @@ export class ComponentOverview extends React.Component {
 
             let schema = subCats[0];    // first entry is always the schema lookup
             let cats = subCats.filter((sc, i) => i > 0).map((sc, id) => ({
-                id: id + 1,
+                id: sc[schema.subcategoryIdx],
                 category: sc[schema.category],
                 subcategory: sc[schema.subcategory],
-                sourcename: sc[schema.sourcename],
+                sourcename: "", // not needed
                 stockhash: 0,   // not needed
                 datahash: 0     // not needed
             }));

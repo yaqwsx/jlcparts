@@ -12,6 +12,15 @@ import { naturalCompare } from '@discoveryjs/natural-compare';
 
 enableMapSet();
 
+// polyfill for sets - union/intersection only available on latest browsers
+function setIntersection(a, b) {
+    return new Set(a.values().filter(it => b.has(it)));
+}
+function setUnion(a, b) {
+    return new Set(Array.from(a).concat(Array.from(b)));
+}
+
+
 function getValue(value) {
     return value?.[0];
 }
@@ -715,22 +724,22 @@ class CategoryFilter extends React.Component {
                 // find duplicate subcategory names across all categories
                 for (const id of Array.from(toRemove)) {
                     const idList = subcatIds[subcatNames[id]];
-                    toRemove = toRemove.union(new Set(idList));
+                    toRemove = setUnion(toRemove, new Set(idList));
                 }
 
                 for (const id of Array.from(toAdd)) {
                     const idList = subcatIds[subcatNames[id]];
-                    toAdd = toAdd.union(new Set(idList));
+                    toAdd = setUnion(toAdd, new Set(idList));
                 }
 
                 // modify all of them
                 for (const catentry of this.props.categories) {
                     let updatedValue = new Set(draft.categories[catentry.category]);
-                    const add = new Set(catentry.subcategories.map(sc => sc.key)).intersection(toAdd);
+                    const add = setIntersection(new Set(catentry.subcategories.map(sc => sc.key)), toAdd);
                     for (const x of add) {
                         updatedValue.add(x);
                     }
-                    const remove = new Set(catentry.subcategories.map(sc => sc.key)).intersection(toRemove);
+                    const remove = setIntersection(new Set(catentry.subcategories.map(sc => sc.key)), toRemove);
                     for (const x of remove) {
                         updatedValue.delete(x);
                     }

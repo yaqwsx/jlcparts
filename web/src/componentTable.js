@@ -714,10 +714,10 @@ class CategoryFilter extends React.Component {
                 const subcatNames = [];
                 for (const catentry of this.props.categories) {
                     for (const subcatEntry of catentry.subcategories) {
-                        subcatIds[subcatEntry.value] ??= [];
-                        subcatIds[subcatEntry.value].push(subcatEntry.key);
+                        subcatIds[subcatEntry.value.toLocaleLowerCase()] ??= [];
+                        subcatIds[subcatEntry.value.toLocaleLowerCase()].push(subcatEntry.key);
 
-                        subcatNames[subcatEntry.key] = subcatEntry.value;
+                        subcatNames[subcatEntry.key] = subcatEntry.value.toLocaleLowerCase();
                     }
                 }
 

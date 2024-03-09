@@ -14,7 +14,7 @@ enableMapSet();
 
 // polyfill for sets - union/intersection only available on latest browsers
 function setIntersection(a, b) {
-    return new Set(a.values().filter(it => b.has(it)));
+    return new Set(Array.from(a).filter(it => b.has(it)));
 }
 function setUnion(a, b) {
     return new Set(Array.from(a).concat(Array.from(b)));

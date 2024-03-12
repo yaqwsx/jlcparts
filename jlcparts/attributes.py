@@ -578,7 +578,7 @@ def esr(value):
             }
         }
     value = erase(value, ["(", ")"]) # For resonators, the value is enclosed in parenthesis
-    matches = re.fullmatch(r"([\w.]*)\s*(?:[@\s]\s*([~\w.]*))?", value)
+    matches = re.fullmatch(r"([\w.]*)\s*(?:[@\s]\s*([~\w.]*))?[.,]?", value)
     res = readResistance(matches.group(1))
     if matches.group(2):
         freq = readFrequency(matches.group(2).split('~')[-1])

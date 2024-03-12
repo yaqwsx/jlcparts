@@ -136,6 +136,8 @@ def normalizeAttribute(key, value):
             value = attributes.capacityAtVoltage(value)
         elif key in larr(["Total Gate Charge (Qg@Vgs)"]):
             value = attributes.chargeAtVoltage(value)
+        elif key in larr(["Frequency - self resonant", "Output frequency (max)"]):
+            value = attributes.frequencyAttribute(value)
         else:
             value = attributes.stringAttribute(value)
     except: 

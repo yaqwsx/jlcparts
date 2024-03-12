@@ -297,6 +297,16 @@ def inductanceAttribute(value):
         }
     }
 
+def frequencyAttribute(value):
+    value = readFrequency(value)
+    return {
+        "format": "${frequency}",
+        "primary": "frequency",
+        "values": {
+            "frequency": [value, "frequency"]
+        }
+    }
+
 
 def rdsOnMaxAtIdsAtVgs(value):
     """

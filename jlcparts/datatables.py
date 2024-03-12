@@ -60,82 +60,90 @@ def normalizeAttribute(key, value):
         }
     The fallback is unit "string"
     """
-    key = normalizeAttributeKey(key)
+    larr = lambda arr : map(lambda str : str.lower(), arr)
+    normkey = normalizeAttributeKey(key)
+    key = normkey.lower()
     if isinstance(value, str):
         value = normalizeUnicode(value)
-    if key in ["Resistance", "Resistance in Ohms @ 25°C", "DC Resistance"]:
-        value = attributes.resistanceAttribute(value)
-    elif key in ["Balance Port Impedence", "Unbalance Port Impedence"]:
-        value = attributes.impedanceAttribute(value)
-    elif key in ["Voltage - Rated", "Voltage Rating - DC", "Allowable Voltage",
-            "Clamping Voltage", "Varistor Voltage(Max)", "Varistor Voltage(Typ)",
-            "Varistor Voltage(Min)", "Voltage - DC Reverse (Vr) (Max)",
-            "Voltage - DC Spark Over (Nom)", "Voltage - Peak Reverse (Max)",
-            "Voltage - Reverse Standoff (Typ)", "Voltage - Gate Trigger (Vgt) (Max)",
-            "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
-            "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)",
-            "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage",
-            "Voltage - Input (Min)", "Drain Source Voltage (Vdss)"]:
-        value = attributes.voltageAttribute(value)
-    elif key in ["Rated current", "surge current", "Current - Average Rectified (Io)",
-                 "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
-                 "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
-                 "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
-                 "Current - Supply (Max)", "Output Current", "Output Current (Max)",
-                 "Output / Channel Current", "Current - Output",
-                 "Saturation Current (Isat)"]:
-        value = attributes.currentAttribute(value)
-    elif key in ["Power", "Power Per Element", "Power Dissipation (Pd)"]:
-        value = attributes.powerAttribute(value)
-    elif key in ["Number of Pins", "Number of Resistors", "Number of Loop",
-                 "Number of Regulators", "Number of Outputs", "Number of Capacitors"]:
-        value = attributes.countAttribute(value)
-    elif key in ["Capacitance"]:
-        value = attributes.capacitanceAttribute(value)
-    elif key in ["Inductance"]:
-        value = attributes.inductanceAttribute(value)
-    elif key == "Rds On (Max) @ Id, Vgs":
-        value = attributes.rdsOnMaxAtIdsAtVgs(value)
-    elif key in ["Operating Temperature (Max)", "Operating Temperature (Min)"]:
-        value = attributes.temperatureAttribute(value)
-    elif key.startswith("Continuous Drain Current"):
-        value = attributes.continuousTransistorCurrent(value, "Id")
-    elif key == "Current - Collector (Ic) (Max)":
-        value = attributes.continuousTransistorCurrent(value, "Ic")
-    elif key in ["Vgs(th) (Max) @ Id", "Gate Threshold Voltage (Vgs(th)@Id)"]:
-        value = attributes.vgsThreshold(value)
-    elif key.startswith("Drain to Source Voltage"):
-        value = attributes.drainToSourceVoltage(value)
-    elif key == "Drain Source On Resistance (RDS(on)@Vgs,Id)":
-        value = attributes.rdsOnMaxAtVgsAtIds(value)
-    elif key == "Power Dissipation-Max (Ta=25°C)":
-        value = attributes.powerDissipation(value)
-    elif key in ["Equivalent Series Resistance", "Impedance @ Frequency"]:
-        value = attributes.esr(value)
-    elif key == "Ripple Current":
-        value = attributes.rippleCurrent(value)
-    elif key == "Size(mm)":
-        value = attributes.sizeMm(value)
-    elif key == "Voltage - Forward (Vf) (Max) @ If":
-        value = attributes.forwardVoltage(value)
-    elif key in ["Voltage - Breakdown (Min)", "Voltage - Zener (Nom) (Vz)",
-        "Vf - Forward Voltage"]:
-        value = attributes.voltageRange(value)
-    elif key == "Voltage - Clamping (Max) @ Ipp":
-        value = attributes.clampingVoltage(value)
-    elif key == "Voltage - Collector Emitter Breakdown (Max)":
-        value = attributes.vceBreakdown(value)
-    elif key == "Vce(on) (Max) @ Vge, Ic":
-        value = attributes.vceOnMax(value)
-    elif key in ["Input Capacitance (Ciss@Vds)",
-               "Reverse Transfer Capacitance (Crss@Vds)"]:
-        value = attributes.capacityAtVoltage(value)
-    elif key in ["Total Gate Charge (Qg@Vgs)"]:
-        value = attributes.chargeAtVoltage(value)
-    else:
-        value = attributes.stringAttribute(value)
+
+    try:
+        if key in larr(["Resistance", "Resistance in Ohms @ 25°C", "DC Resistance"]):
+            value = attributes.resistanceAttribute(value)
+        elif key in larr(["Balance Port Impedence", "Unbalance Port Impedence"]):
+            value = attributes.impedanceAttribute(value)
+        elif key in larr(["Voltage - Rated", "Voltage Rating - DC", "Allowable Voltage",
+                "Clamping Voltage", "Varistor Voltage(Max)", "Varistor Voltage(Typ)",
+                "Varistor Voltage(Min)", "Voltage - DC Reverse (Vr) (Max)",
+                "Voltage - DC Spark Over (Nom)", "Voltage - Peak Reverse (Max)",
+                "Voltage - Reverse Standoff (Typ)", "Voltage - Gate Trigger (Vgt) (Max)",
+                "Voltage - Off State (Max)", "Voltage - Input (Max)", "Voltage - Output (Max)",
+                "Voltage - Output (Fixed)", "Voltage - Output (Min/Fixed)",
+                "Supply Voltage (Max)", "Supply Voltage (Min)", "Output Voltage",
+                "Voltage - Input (Min)", "Drain Source Voltage (Vdss)"]):
+            value = attributes.voltageAttribute(value)
+        elif key in larr(["Rated current", "surge current", "Current - Average Rectified (Io)",
+                    "Current - Breakover", "Current - Peak Output", "Current - Peak Pulse (10/1000μs)",
+                    "Impulse Discharge Current (8/20us)", "Current - Gate Trigger (Igt) (Max)",
+                    "Current - On State (It (AV)) (Max)", "Current - On State (It (RMS)) (Max)",
+                    "Current - Supply (Max)", "Output Current", "Output Current (Max)",
+                    "Output / Channel Current", "Current - Output",
+                    "Saturation Current (Isat)"]):
+            value = attributes.currentAttribute(value)
+        elif key in larr(["Power", "Power Per Element", "Power Dissipation (Pd)"]):
+            value = attributes.powerAttribute(value)
+        elif key in larr(["Number of Pins", "Number of Resistors", "Number of Loop",
+                    "Number of Regulators", "Number of Outputs", "Number of Capacitors"]):
+            value = attributes.countAttribute(value)
+        elif key in larr(["Capacitance"]):
+            value = attributes.capacitanceAttribute(value)
+        elif key in larr(["Inductance"]):
+            value = attributes.inductanceAttribute(value)
+        elif key == "Rds On (Max) @ Id, Vgs".lower():
+            value = attributes.rdsOnMaxAtIdsAtVgs(value)
+        elif key in larr(["Operating Temperature (Max)", "Operating Temperature (Min)"]):
+            value = attributes.temperatureAttribute(value)
+        elif key.startswith("Continuous Drain Current"):
+            value = attributes.continuousTransistorCurrent(value, "Id")
+        elif key == "Current - Collector (Ic) (Max)".lower():
+            value = attributes.continuousTransistorCurrent(value, "Ic")
+        elif key in larr(["Vgs(th) (Max) @ Id", "Gate Threshold Voltage (Vgs(th)@Id)"]):
+            value = attributes.vgsThreshold(value)
+        elif key.startswith("Drain to Source Voltage"):
+            value = attributes.drainToSourceVoltage(value)
+        elif key == "Drain Source On Resistance (RDS(on)@Vgs,Id)".lower():
+            value = attributes.rdsOnMaxAtVgsAtIds(value)
+        elif key == "Power Dissipation-Max (Ta=25°C)".lower():
+            value = attributes.powerDissipation(value)
+        elif key in larr(["Equivalent Series Resistance", "Impedance @ Frequency"]):
+            value = attributes.esr(value)
+        elif key == "Ripple Current".lower():
+            value = attributes.rippleCurrent(value)
+        elif key == "Size(mm)".lower():
+            value = attributes.sizeMm(value)
+        elif key == "Voltage - Forward (Vf) (Max) @ If".lower():
+            value = attributes.forwardVoltage(value)
+        elif key in larr(["Voltage - Breakdown (Min)", "Voltage - Zener (Nom) (Vz)",
+            "Vf - Forward Voltage"]):
+            value = attributes.voltageRange(value)
+        elif key == "Voltage - Clamping (Max) @ Ipp".lower():
+            value = attributes.clampingVoltage(value)
+        elif key == "Voltage - Collector Emitter Breakdown (Max)".lower():
+            value = attributes.vceBreakdown(value)
+        elif key == "Vce(on) (Max) @ Vge, Ic".lower():
+            value = attributes.vceOnMax(value)
+        elif key in larr(["Input Capacitance (Ciss@Vds)",
+                   "Reverse Transfer Capacitance (Crss@Vds)"]):
+            value = attributes.capacityAtVoltage(value)
+        elif key in larr(["Total Gate Charge (Qg@Vgs)"]):
+            value = attributes.chargeAtVoltage(value)
+        else:
+            value = attributes.stringAttribute(value)
+    except: 
+        print(f"Could not process key {normkey}; obj {value}")
+        value = attributes.stringAttribute(value)   # fall back to string -- these values should have their patterns updated
+
     assert isinstance(value, dict)
-    return key, value
+    return normkey, value
 
 def normalizeCapitalization(key):
     """

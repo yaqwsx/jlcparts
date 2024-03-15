@@ -5,6 +5,10 @@
 /.pnp
 .pnp.js
 
+*.json
+*.gz
+*.jsonlines
+
 # testing
 /coverage
 

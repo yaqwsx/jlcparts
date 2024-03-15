@@ -48,12 +48,20 @@ function numericComparator(a, b) {
     return a - b;
 }
 
+function removeTrailingChar(str, charToRemove) {
+    while(str.endsWith(charToRemove)) {
+        str = str.slice(0, -1);
+    }
+    return str;
+}
+
+
 // Format values like 1u6, 1k6, 1M9
 function infixMagnitudeFormatter(value, letter, order) {
     value = value / order;
     let integralPart = Math.floor(value);
     let fractionalPart = (value - integralPart) * 1000; // Number of significant digits
-    let fractionalPartStr = fractionalPart.toFixed().replace(/0*$/,'');
+    let fractionalPartStr = removeTrailingChar(fractionalPart.toFixed(0).padStart(3, '0'), '0')
 
     return String(integralPart) + letter + fractionalPartStr;
 }

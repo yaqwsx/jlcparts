@@ -2,7 +2,6 @@
 
 import setuptools
 
-
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
@@ -11,10 +10,10 @@ setuptools.setup(
     version="0.1.0",
     author="Jan Mrázek",
     author_email="email@honzamrazek.cz",
-    description="Better view of JLC PCB parts",
+    description="Better view of JLCPCB parts",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/RoboticsBrno/JLCPCB-Parts",
+    url="https://github.com/yaqwsx/jlcparts",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

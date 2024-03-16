@@ -25,10 +25,10 @@ function Header(props) {
       <img src="./favicon.svg" alt="" className="block flex-none mr-4 h-auto"/>
       <div className="flex-1">
         <h1 className="text-4xl font-bold">
-          JLC PCB SMD Assembly Component Catalogue
+          JLCPCB SMD Assembly Component Catalogue
         </h1>
         <p>
-          Parametric search for components offered by <a href="https://jlcpcb.com" className="underline text-blue-600">JLC PCB</a> SMD assembly service.
+          Parametric search for components offered by <a href="https://jlcpcb.com" className="underline text-blue-600">JLCPCB</a> SMD assembly service.
         </p>
         <p>
           Read more at project's <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/yaqwsx/jlcparts">GitHub page</a>.

@@ -154,6 +154,7 @@ def normalizeCapitalization(key):
     correct capitalization
     """
     key = key.lower()
+
     CAPITALIZATIONS = [
         "Basic/Extended", "MHz", "GHz", "Hz", "MOQ"
     ]
@@ -315,7 +316,7 @@ class MapCategoryParams:
 
 
 def _map_category(val: MapCategoryParams):
-    # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
+    # Sometimes, JLCPCB doesn't fill in the category names. Ignore such
     # components.
     if val.catName.strip() == "":
         return None

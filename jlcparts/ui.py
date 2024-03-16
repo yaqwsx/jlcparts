@@ -79,8 +79,8 @@ def updatePreferred(db):
 @click.argument("libraryFilename")
 def listcategories(libraryfilename):
     """
-    Print all categories from library specified by LIBRARYFILENAMEto standard
-    output
+    Print all categories from library specified by LIBRARYFILENAME (JSON file) to standard
+    output.
     """
     lib = PartLibrary(libraryfilename)
     for c, subcats in lib.categories().items():
@@ -93,7 +93,7 @@ def listcategories(libraryfilename):
 def listattributes(libraryfilename):
     """
     Print all keys in the extra["attributes"] arguments from library specified by
-    LIBRARYFILENAME to standard output
+    LIBRARYFILENAME (JSON file) to standard output.
     """
     keys = set()
     lib = PartLibrary(libraryfilename)
@@ -114,7 +114,7 @@ def listattributes(libraryfilename):
 @click.argument("lcsc_code")
 def fetchDetails(lcsc_code):
     """
-    Fetch LCSC extra information for a given LCSC code
+    Fetch LCSC extra information for a given LCSC code.
     """
     print(getLcscExtraNew(lcsc_code))
 
@@ -122,9 +122,9 @@ def fetchDetails(lcsc_code):
 @click.argument("filename", type=click.Path(writable=True))
 @click.option("--verbose", is_flag=True,
     help="Be verbose")
-def fetchTable(filename, verbose):
+def fetchTable(filename: str, verbose: bool):
     """
-    Fetch JLC PCB component table
+    Fetch JLCPCB component table from jlcpcb.com, and store it to FILENAME (csv file).
     """
     from .jlcpcb import pullComponentTable
 
@@ -138,7 +138,7 @@ def fetchTable(filename, verbose):
 @click.argument("lcsc")
 def testComponent(lcsc):
     """
-    Tests parsing attributes of given component
+    Test parsing attributes of given component.
     """
     extra = getLcscExtraNew(lcsc)["attributes"]
 

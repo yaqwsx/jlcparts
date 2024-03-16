@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import { Link } from 'react-scroll';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
+import { saveAs } from 'file-saver';
 import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
 import { AttritionInfo, getQuantityPrice } from "./jlc"
@@ -302,6 +303,47 @@ export class ComponentOverview extends React.Component {
         this.setState({stockRequired: stockRequired});
     }
 
+    // get text content from a react element object
+    extractText(element) {
+      // Check if the element is a simple string or number and return it as text
+      if (typeof element === 'string' || typeof element === 'number') {
+        return String(element);
+      }
+
+      // If the element has props and children, dive deeper
+      if (element && element.props && element.props.children) {
+        if (Array.isArray(element.props.children)) {
+          // If children is an array, recursively extract text from each child
+          return element.props.children.map(child => this.extractText(child)).join(' ');
+        } else {
+          // If children is a single element, recursively extract its text
+          return this.extractText(element.props.children);
+        }
+      }
+
+      // If we reach here, the element does not contain directly extractable text
+      return '';
+    }
+
+    downloadComponents(components, header) {
+      let headerContent = header.map(cell => `"${cell.name}"`).join(',');
+      let csvContent = components.map((row, index) => {
+        // expandableContent={this.props.expandableContent(row)}>
+        let csvRow = header.map(cell => {
+          if (cell.name === "Image") {
+            return `"${cell.displayGetter(row)?.props?.src || ''}"`;
+          } else {
+            return '"' + this.extractText(cell.displayGetter(row)).trim().replace('"', "'") + '"';
+          }
+        }).join(',');
+
+        return csvRow;
+      }).join('\n');
+
+      const blob = new Blob([`${headerContent}\n${csvContent}`], { type: "text/csv;charset=utf-8" });
+      saveAs(blob, `components-${components.length}.csv`);
+    }
+
     render() {
         let filterComponents = <>
             <CategoryFilter
@@ -505,11 +547,16 @@ export class ComponentOverview extends React.Component {
                 ?  <div className="pt-4" id="results">
                         <div className="w-full flex py-2">
                             <p className="flex-none p-2">Components matching query: {filteredComponents.length}</p>
-                            <CopyToClipboard text={filteredComponents.map(c => `wget ${c.datasheet}`).join("\n")}>
-                                <button className="flex-none ml-auto block flex-none bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={e => e.stopPropagation()}>
-                                    wget all datasheets <FontAwesomeIcon icon="clipboard"/>
+                            <div className="flex-none ml-auto block flex-none">
+                                <CopyToClipboard text={filteredComponents.map(c => `wget ${c.datasheet}`).join("\n")}>
+                                    <button className="bg-blue-500 hover:bg-blue-700 text-black py-2 px-2 mr-2 rounded" onClick={e => e.stopPropagation()}>
+                                        wget all datasheets <FontAwesomeIcon icon="clipboard"/>
+                                    </button>
+                                </CopyToClipboard>
+                                <button className="bg-blue-500 hover:bg-blue-700 text-black py-2 px-2 rounded" onClick={() => this.downloadComponents(filteredComponents, header)}>
+                                    Download CSV <FontAwesomeIcon icon="download"/>
                                 </button>
-                            </CopyToClipboard>
+                            </div>
                         </div>
                         <SortableTable
                             className="w-full"

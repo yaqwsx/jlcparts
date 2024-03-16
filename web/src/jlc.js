@@ -1,6 +1,7 @@
 import React from "react";
 import { InlineSpinbox } from "./componentTable.js"
 import { CORS_KEY } from "./corsBridge.js";
+import { lcscCode } from './component'
 
 export function getQuantityPrice(quantity, pricelist) {
     return pricelist.find(pricepoint =>
@@ -26,7 +27,7 @@ export class AttritionInfo extends React.Component {
             body: JSON.stringify({
                 currentPage: 1,
                 pageSize: 25,
-                keyword: this.props.component.lcsc,
+                keyword: lcscCode(this.props.component),
                 firstSortName: "",
                 secondeSortName: "",
                 searchSource: "search",
@@ -35,14 +36,14 @@ export class AttritionInfo extends React.Component {
         })
         .then(response => {
             if (!response.ok || response.status !== 200) {
-                throw new Error(`Cannot fetch ${this.props.component.lcsc}: ${response.statusText}`);
+                throw new Error(`Cannot fetch ${lcscCode(this.props.component)}: ${response.statusText}`);
             }
             return response.json();
         })
         .then(({data}) => {
-            const lcscId = data.componentPageInfo.list.find(({componentCode}) => componentCode === this.props.component.lcsc)?.componentId;
+            const lcscId = data.componentPageInfo.list.find(({componentCode}) => componentCode === lcscCode(this.props.component))?.componentId;
             if (lcscId === undefined) {
-                throw new Error(`No search results for ${this.props.component.lcsc}`);
+                throw new Error(`No search results for ${lcscCode(this.props.component)}`);
             }
             return fetch("https://cors.bridged.cc/https://jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentLcscId=" + lcscId, {
                 headers: {
@@ -52,7 +53,7 @@ export class AttritionInfo extends React.Component {
         })
         .then(response => {
             if (!response.ok || response.status !== 200) {
-                throw new Error(`Cannot fetch ${this.props.lcsc}: ${response.statusText}`);
+                throw new Error(`Cannot fetch ${lcscCode(this.props)}: ${response.statusText}`);
             }
             return response.json();
         })

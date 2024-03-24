@@ -657,7 +657,7 @@ class CategoryFilter extends React.Component {
             let notWords = words.filter(w => w[0] === '~').map(w => w.substring(1));
             words = words.filter(w => w[0] !== '~');
             
-            if (words.length > 0) {
+            if (words.length > 0 || notWords.length > 0) {
                 query = query.filter(component => {
                     const text = componentText(component);
                     return words.every(word => text.includes(word)) && !notWords.some(word => text.includes(word));

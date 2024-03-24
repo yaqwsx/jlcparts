@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "https://yaqwsx.github.io/jlcparts/static/css/main.a525cd90.css",
+    "main.js": "https://yaqwsx.github.io/jlcparts/static/js/main.768c7682.js",
+    "index.html": "https://yaqwsx.github.io/jlcparts/index.html",
+    "main.a525cd90.css.map": "https://yaqwsx.github.io/jlcparts/static/css/main.a525cd90.css.map",
+    "main.768c7682.js.map": "https://yaqwsx.github.io/jlcparts/static/js/main.768c7682.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a525cd90.css",
+    "static/js/main.768c7682.js"
+  ]
+}

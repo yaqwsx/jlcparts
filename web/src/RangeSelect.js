@@ -16,16 +16,16 @@ function RangeSelect({ icon, title, options, onRangeChange }) {
         setIsOpen(false);
 
         setTimeout(() => {
-            const lbValid = !isNaN(lowerBound) && lowerBound.trim().length;
-            const ubValid = !isNaN(upperBound) && upperBound.trim().length
+            const lb = valueFromString(lowerBound); // convert number and unit from string
+            const ub = valueFromString(upperBound);
 
-            if (lbValid || ubValid) {
+            if (lb !== null || ub !== null) {
                 let ranges = options.map(o => rangeFromStr(o.value));
-                if (lbValid) {
-                    ranges = ranges.map(r => r && r.low <= +lowerBound ? r : null);
+                if (lb !== null) {
+                    ranges = ranges.map(r => r && r.low <= lb ? r : null);
                 }
-                if (ubValid) {
-                    ranges = ranges.map(r => r && r.high >= +upperBound ? r : null);
+                if (ub !== null) {
+                    ranges = ranges.map(r => r && r.high >= ub ? r : null);
                 }
 
                 onRangeChange && onRangeChange(options.filter((o, i) => ranges[i] != null));
@@ -53,12 +53,12 @@ function RangeSelect({ icon, title, options, onRangeChange }) {
         else {
             return <div style={{ position: 'absolute', inset: 0, width: '100%' }} className='bg-blue-500'>
                 <div className='flex' style={{ flexFlow: 'row' }}>
-                    <div style={{ width: '100%' }}>Low bound max.</div>
-                    <div className='mr-1'><input type='number' className='w-full rounded bg-white pl-1' style={{ width: '3em' }} value={lowerBound} onChange={e => setLowerBound(e.target.value)}></input></div>
+                    <div style={{ width: '100%', whiteSpace: 'nowrap' }}>Low bound max.</div>
+                    <div className='mr-1'><input style={{height: '1.2em'}} className='w-full rounded bg-white pl-1' value={lowerBound} onChange={e => setLowerBound(e.target.value)}></input></div>
                 </div>
                 <div className='flex mt-1' style={{ flexFlow: 'row' }}>
-                    <div style={{ width: '100%' }}>High bound min.</div>
-                    <div className='mr-1'><input type='number' className='w-full rounded bg-white pl-1' style={{ width: '3em' }} value={upperBound} onChange={e => setUpperBound(e.target.value)}></input></div>
+                    <div style={{ width: '100%', whiteSpace: 'nowrap' }}>High bound min.</div>
+                    <div className='mr-1'><input style={{height: '1.2em'}} className='w-full rounded bg-white pl-1' value={upperBound} onChange={e => setUpperBound(e.target.value)}></input></div>
                 </div>
                 <button style={{ position: 'absolute', right: 0 }} className='pl-1 pr-1 mr-1' onClick={applyFilter}>
                     <div style={{ width: '1em', background: 'transparent' }}><FontAwesomeIcon icon='check-circle' title='Apply'></FontAwesomeIcon></div>
@@ -87,7 +87,7 @@ function units() {
         ['Kpa', 1e3],
         ['kpa', 1e3],
         ['Mpa', 1e6],
-        ['K', 1e3],
+        ['K', 1e3],     // this is probably Kelvin, in which case the scale should be 1
         ['N', 1],
         ['V', 1],
         ['mV', 1e-3],
@@ -140,4 +140,14 @@ function getRangePattern() {
     const pattern = `([-+]?[0-9.]+)(${anyUnitRegexString()})(@[^~]+)?~([-+]?[0-9.]+)(${anyUnitRegexString()})(@[^~]+)?.*`;
     console.log(pattern);
     return new RegExp(pattern);
+}
+
+function valueFromString(str) {
+    if (!isNaN(str) && str.length > 0) {
+        return +str;
+    } else {
+        const pattern = new RegExp(`([-+]?[0-9.]+)(${anyUnitRegexString()})`);
+        const match = pattern.exec(str);
+        return match ? +match[1] * units().filter(u => u[0] === match[2])[0][1] : null;
+    }
 }

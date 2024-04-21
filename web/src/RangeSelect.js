@@ -87,7 +87,7 @@ function units() {
         ['Kpa', 1e3],
         ['kpa', 1e3],
         ['Mpa', 1e6],
-        ['K', 1e3],     // this is probably Kelvin, in which case the scale should be 1
+        ['K', 1],     // this is probably Kelvin, in which case the scale should be 1
         ['N', 1],
         ['V', 1],
         ['mV', 1e-3],

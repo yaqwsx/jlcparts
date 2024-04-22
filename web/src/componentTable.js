@@ -9,6 +9,7 @@ import { SortableTable } from "./sortableTable"
 import { quantityComparator, quantityFormatter } from "./units";
 import { AttritionInfo, getQuantityPrice } from "./jlc"
 import { naturalCompare } from '@discoveryjs/natural-compare';
+import RangeSelect from "./RangeSelect";
 
 enableMapSet();
 
@@ -889,6 +890,7 @@ class PropertySelector extends React.Component {
             onChange={value => {
                 this.props.onChange(value); } }
         >
+            <div style={{position: 'relative'}}>
             <div className="w-full flex">
                 <div className="flex-none">
                     Sort by:
@@ -911,13 +913,17 @@ class PropertySelector extends React.Component {
                 Table column
             </div>
             <div className="w-full">
-                <input
-                    className="mr-2 leading-tight"
-                    type="checkbox"
-                    checked={this.props.required}
-                    onChange={e => {
-                        this.props.onPropertyRequired(e.target.checked); } } />
-                Required
+                <div>
+                    <input
+                        className="mr-2 leading-tight"
+                        type="checkbox"
+                        checked={this.props.required}
+                        onChange={e => {
+                            this.props.onPropertyRequired(e.target.checked); } } />
+                    Required
+                </div>
+            </div>
+                <RangeSelect title="Range selector" options={options} onRangeChange={opts => this.props.onChange(opts.map(o => o.key))}/>
             </div>
         </MultiSelectBox>;
     }

@@ -156,8 +156,14 @@ export class ComponentOverview extends React.Component {
             expectedComponentsVersion: 0,
             componentsVersion: 0,
             tableIncludedProperties: new Set(),
-            quantity: 1
+            quantity: 1,
+            favorites: new Set(),
+            favoritesOnly: false
         };
+
+        db.settings.get("favorites").then(favorites => {
+          this.setState({favorites: new Set(favorites.value)});
+        });
     }
 
     componentDidMount() {
@@ -280,6 +286,8 @@ export class ComponentOverview extends React.Component {
             for (const property in activeProperties) {
                 if (this.state.stockRequired && component.stock < this.state.quantity)
                     return false;
+                if (this.state.favoritesOnly && !this.state.favorites.has(component.lcsc))
+                    return false;                
                 let attributes = component.attributes;
                 if (!(property in attributes)) {
                     if (requiredProperties.has(property))
@@ -302,6 +310,23 @@ export class ComponentOverview extends React.Component {
         this.setState({stockRequired: stockRequired});
     }
 
+    handleFavoritesOnly = (favoritesOnly) => {
+      this.setState({favoritesOnly});
+    }
+
+    updateFavorites(lcsc, isFavorite) {
+      let copy = new Set(this.state.favorites);
+      if (isFavorite) {
+        copy.add(lcsc);
+      } else {
+        copy.delete(lcsc);
+      }
+
+      db.settings.put({key: "favorites", value: Array.from(copy)}); // save in database for next time
+
+      this.setState({favorites: copy});
+    }
+
     render() {
         let filterComponents = <>
             <CategoryFilter
@@ -321,7 +346,8 @@ export class ComponentOverview extends React.Component {
                 onChange={this.handleQuantityChange}
                 value={this.state.quantity}
                 stockRequired={this.state.stockRequired}
-                onStockRequired={this.handleStockRequired}/>
+                onStockRequired={this.handleStockRequired}
+                onFavoritesOnly={this.handleFavoritesOnly}/>
             </>;
 
         if (this.state.expectedComponentsVersion !== this.state.componentsVersion) {
@@ -336,8 +362,14 @@ export class ComponentOverview extends React.Component {
                 name: "MFR",
                 sortable: true,
                 displayGetter: x => <>
+                  <div className="flex py-2">
+                    <div className="pl-1" onClick={e=>{ e.stopPropagation(); this.updateFavorites(x.lcsc, !this.state.favorites.has(x.lcsc))}}>
+                      {this.state.favorites.has(x.lcsc)
+                        ? <FontAwesomeIcon icon="heart" title="Unfavorite"></FontAwesomeIcon>
+                        : <div style={{color: 'gray'}}><FontAwesomeIcon icon="heart" title="Add to favorites" className="text-muted"></FontAwesomeIcon></div>}
+                    </div>
                     <CopyToClipboard text={x.mfr}>
-                        <button className="py-2 px-4 pl-1" onClick={e => e.stopPropagation()}>
+                        <button className="px-4" onClick={e => e.stopPropagation()}>
                             <FontAwesomeIcon icon="clipboard"/>
                         </button>
                     </CopyToClipboard>
@@ -353,6 +385,7 @@ export class ComponentOverview extends React.Component {
                     ) : (
                         x.mfr
                     )}
+                  </div>
                 </>,
                 comparator: (a, b) => naturalCompare(a.mfr, b.mfr),
                 className: "px-1 whitespace-no-wrap"
@@ -993,6 +1026,18 @@ class QuantitySelect extends React.Component {
                         <span className="text-gray-600 text-xs">
                             (Stock data can be 24 hours old)
                         </span>
+                    </span>
+                </div>
+                <div className="flex-none flex items-center">
+                    <input
+                        className="px-2 ml-3 transform scale-150"
+                        type="checkbox"
+                        checked={this.props.favoritesOnly}
+                        onChange={e => {
+                            this.props.onFavoritesOnly(e.target.checked)
+                        }}/>
+                    <span className="ml-1 py-2 pl-2 leading-none">
+                        Favorites only <br/>
                     </span>
                 </div>
             </div>

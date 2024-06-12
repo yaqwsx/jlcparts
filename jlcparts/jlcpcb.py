@@ -9,6 +9,9 @@ JLCPCB_SECRET = os.environ.get("JLCPCB_SECRET")
 
 class JlcPcbInterface:
     def __init__(self, key: str, secret: str) -> None:
+        if (key is None) or (secret is None) or (key == "") or (secret == ""):
+            raise RuntimeError("`key` and `secret` arguments must be provided.")
+
         self.key = key
         self.secret = secret
         self.token = None
@@ -57,6 +60,10 @@ def dummyReporter(progress) -> None:
 
 def pullComponentTable(filename: str, reporter: Callable[[int], None] = dummyReporter,
                        retries: int = 10, retryDelay: int = 5) -> None:
+    
+    if (JLCPCB_KEY is None) or (JLCPCB_SECRET is None) or (JLCPCB_KEY == "") or (JLCPCB_SECRET == ""):
+            raise RuntimeError("Please set JLCPCB_KEY and JLCPCB_SECRET environment variables.")
+
     interf = JlcPcbInterface(JLCPCB_KEY, JLCPCB_SECRET)
     with open(filename, "w", encoding="utf-8") as f:
         writer = csv.writer(f)

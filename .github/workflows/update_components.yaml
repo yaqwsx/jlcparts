@@ -48,6 +48,9 @@ jobs:
           done
 
           7z x cache.zip
+          for seq in $(seq -w 01 30); do
+            rm cache.z$seq || true
+          done
 
           jlcparts fetchtable parts.csv
 

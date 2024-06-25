@@ -102,13 +102,13 @@ def normalizeAttribute(key, value):
             value = attributes.rdsOnMaxAtIdsAtVgs(value)
         elif key in larr(["Operating Temperature (Max)", "Operating Temperature (Min)"]):
             value = attributes.temperatureAttribute(value)
-        elif key.startswith("Continuous Drain Current"):
+        elif key.startswith("Continuous Drain Current".lower()):
             value = attributes.continuousTransistorCurrent(value, "Id")
         elif key == "Current - Collector (Ic) (Max)".lower():
             value = attributes.continuousTransistorCurrent(value, "Ic")
         elif key in larr(["Vgs(th) (Max) @ Id", "Gate Threshold Voltage (Vgs(th)@Id)"]):
             value = attributes.vgsThreshold(value)
-        elif key.startswith("Drain to Source Voltage"):
+        elif key.startswith("Drain to Source Voltage".lower()):
             value = attributes.drainToSourceVoltage(value)
         elif key == "Drain Source On Resistance (RDS(on)@Vgs,Id)".lower():
             value = attributes.rdsOnMaxAtVgsAtIds(value)

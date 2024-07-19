@@ -28,7 +28,7 @@ function Header(props) {
           JLC PCB SMD Assembly Component Catalogue
         </h1>
         <p>
-          Parametric search for components offered by <a href="https://jlcpcb.com" className="underline text-blue-600">JLC PCB</a> SMD assembly service.
+          Parametric search for components offered by <a href="https://jlcpcb.com/smt-assembly?from=JanMrazek" className="underline text-blue-600">JLC PCB SMD assembly service</a>.
         </p>
         <p>
           Read more at project's <a className="underline text-blue-500 hover:text-blue-800" href="https://github.com/yaqwsx/jlcparts">GitHub page</a>.

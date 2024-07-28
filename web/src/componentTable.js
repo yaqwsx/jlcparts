@@ -30,6 +30,7 @@ function attributeComparator(x, y, valueType) {
     if (y === undefined)
         return -1;
     valueType ??= x.primary;
+    valueType ??= x.default;
     let comparator = quantityComparator(getQuantity(x.values[valueType]));
     return comparator(
         getValue(x.values[valueType]),

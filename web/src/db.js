@@ -1,5 +1,4 @@
 import Dexie from 'dexie';
-import * as pako from 'pako';
 
 if (!window.indexedDB) {
     alert("This page requires IndexedDB to work.\n" +
@@ -118,9 +117,9 @@ export async function fetchJson(path, errorIntro) {
             return await response.json();
         }
         if (contentType.includes("application/gzip")) {
-            let data = await response.arrayBuffer();
-            let text = pako.ungzip(data, { to: 'string' });
-            return JSON.parse(text);
+            // eslint-disable-next-line no-undef
+            let ds = response.body.pipeThrough(new DecompressionStream("gzip"));
+            return await new Response(ds).json();
         }
     }
     catch (error) {

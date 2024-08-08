@@ -70,10 +70,10 @@ $ source venv/bin/activate
 $ pip install -e .
 ```
 
-Then to download the cached parts list and process it, run:
+To download and process the cached parts list, run these commands. Don't worry about 404 errors for some cache file parts; the number of files can vary.
 
 ```
-$ wget https://yaqwsx.github.io/jlcparts/data/cache.zip https://yaqwsx.github.io/jlcparts/data/cache.z0{1..8}
+$ wget https://yaqwsx.github.io/jlcparts/data/cache.zip https://yaqwsx.github.io/jlcparts/data/cache.z{01..30}
 $ 7z x cache.zip
 $ mkdir -p web/public/data/
 $ jlcparts buildtables --jobs 0 --ignoreoldstock 30 cache.sqlite3 web/public/data

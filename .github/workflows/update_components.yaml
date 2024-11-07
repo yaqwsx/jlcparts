@@ -73,13 +73,13 @@ jobs:
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: web_build
           path: web_build.tar.gz
           retention-days: 14
       - name: Upload table
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: component_table
           path: parts.csv
@@ -93,7 +93,7 @@ jobs:
       - name: Checkout # Required for GH-pages deployment
         uses: actions/checkout@v3
       - name: "Download web"
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: web_build
       - name: Untar artifact

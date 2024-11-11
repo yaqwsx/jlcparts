@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            python3 python3-pip nodejs npm wget zip unzip p7zip-full
+            python3 python3-pip nodejs npm wget zip unzip fuse-zip
           sudo pip3 install requests click
       - name: Build frontend
         run: |
@@ -48,28 +48,44 @@ jobs:
           set -x
           sudo pip3 install -e .
 
+          # download cache parts into single file
+          >cache-combined-bad.zip
+          for i in $(seq -w 01 30)
+          do            
+            wget -q https://yaqwsx.github.io/jlcparts/data/cache.z$i || true
+            if [ -f "cache.z$i" ]; then
+              cat cache.z$i >> cache-combined-bad.zip
+              rm cache.z$i
+            fi
+          done
           wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip
-          for seq in $(seq -w 01 30); do
-            wget -q https://yaqwsx.github.io/jlcparts/data/cache.z$seq || true
-          done
+          cat cache.zip >> cache-combined-bad.zip
+          rm cache.zip
 
-          7z x cache.zip
-          for seq in $(seq -w 01 30); do
-            rm cache.z$seq || true
-          done
 
+          # fix the concatenated zip file ('z\r' is to make it search itself for the split volumes)
+          echo -e 'z\r\n' | zip -FF cache-combined-bad.zip -O cache-combined.zip
+          rm cache-combined-bad.zip
+
+          mkdir -p /tmp/cachezip
+          fuse-zip cache-combined.zip /tmp/cachezip
           jlcparts fetchtable parts.csv
 
           jlcparts getlibrary --age 10000 \
                               --limit 15000 \
-                              parts.csv cache.sqlite3
-          jlcparts updatepreferred cache.sqlite3
+                              parts.csv /tmp/cachezip/cache.sqlite3
+          jlcparts updatepreferred /tmp/cachezip/cache.sqlite3
           jlcparts buildtables --jobs 0 \
                                --ignoreoldstock 120 \
-                               cache.sqlite3 web/build/data
+                               /tmp/cachezip/cache.sqlite3 web/build/data
 
           rm -f web/build/data/cache.z*
-          zip -s 50m web/build/data/cache.zip cache.sqlite3
+          zip -s 50m web/build/data/cache.zip /tmp/cachezip/cache.sqlite3
+          
+          top -b -n 1 | grep fuse-zip
+          rm /tmp/cachezip/cache.sqlite3
+          fusermount -u /tmp/cachezip
+
       - name: Tar artifact # Artifact are case insensitive, this is workaround
         run: tar -czf web_build.tar.gz web/build/
       - name: Upload artifact

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fetchJson, db } from './db'
+import { fetchJson, unpackAndProcessLines, unpackLinesAsArray } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
          formatAttribute, findCategoryById, getImageUrl,
          restoreLcscUrl } from './componentTable'
@@ -19,8 +19,17 @@ class HistoryItem extends React.Component {
     }
 
     componentDidMount() {
-        db.components.get({lcsc: this.props.lcsc}).then( component => {
-            this.setState({info: component});
+        let schema;
+        unpackAndProcessLines('components', (component, idx) => {
+            component = JSON.parse(component);
+            if (idx === 0) {    // first entry is schema
+                schema = component;
+            } else {
+                if (component[schema.lcsc] === this.props.lcsc) {
+                    this.setState({info: component});
+                    return 'abort'; // done
+                }
+            }
         });
     }
 
@@ -152,7 +161,10 @@ class HistoryTable extends React.Component {
                 log.sort((a, b) => b.day - a.day);
                 this.setState({table: log});
             });
-        db.categories.toArray().then( categories => this.setState({categories}) );
+
+        unpackLinesAsArray('subcategories').then(cats => {
+            this.setState({categories: cats.filter((c,i) => i > 0).map(s => JSON.parse(s))});
+        });
     }
 
     render() {

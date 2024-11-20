@@ -1,103 +1,188 @@
 import Dexie from 'dexie';
 import * as pako from 'pako';
+import untar from "js-untar";
 
 if (!window.indexedDB) {
     alert("This page requires IndexedDB to work.\n" +
-            "Your browser does not support it. Please upgrade your browser.");
+        "Your browser does not support it. Please upgrade your browser.");
 }
 
 async function persist() {
-return await navigator.storage?.persist?.();
+    return await navigator.storage?.persist?.();
 }
 
 export const db = new Dexie('jlcparts');
-db.version(1).stores({
+db.version(2).stores({
     settings: 'key',
-    components: 'lcsc, category, mfr, *indexWords',
-    categories: 'id++,[category+subcategory], subcategory, category'
+    jsonlines: 'name'
 });
 
-function extractCategoryKey(category) {
-    return category.id;
-}
 
 const SOURCE_PATH = "data";
+const dbWebPath = `${SOURCE_PATH}/all.jsonlines.tar`;
+
+let jsonlines = {}; // copy of the database in memory so we only access the database once (doesn't really matter - it would be pretty fast anyway)
+async function getJsonlines() {
+    if (Object.keys(jsonlines).length === 0) {
+        (await db.jsonlines.toArray()).forEach(obj => {
+            jsonlines[obj.name] = obj.compressedData
+        });
+    }
+    return jsonlines;
+}
+
+export async function unpackLinesAsArray(name) {
+    let arr = [];
+    await unpackAndProcessLines(name, (val, idx) => arr.push(val));
+    return arr;
+}
+
+async function yieldExec() {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => resolve(), 0);
+    });
+}
+
+export async function unpackAndProcessLines(name, callback, checkAbort) {
+    await getJsonlines();
+
+    if (jsonlines[name] === undefined) {
+        return;
+    }
+
+    let time = new Date().getTime();
+
+    if (!window.DecompressionStream) {
+        console.error("DecompressionStream is not supported in this environment.");
+        return;
+    }
+
+    const decompressionStream = new window.DecompressionStream('gzip');
+
+    // Convert the ArrayBuffer to a ReadableStream
+    const inputStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(jsonlines[name]);
+            controller.close();
+        },
+    });
+
+    // Pipe the input stream through the decompression stream
+    const decompressedStream = inputStream.pipeThrough(decompressionStream);
+
+    // Convert the stream into text
+    const textStream = decompressedStream.pipeThrough(new window.TextDecoderStream());
+
+    const reader = textStream.getReader();  // to read chunks of text from stream
+    let chunk = '';
+    let idx = 0;
+    let lastYield = new Date().getTime();
+
+    try {
+        while (true) {
+
+            // Periodically allow UI to do what it needs to, including updating any abort flag.
+            // This does slow down the this function a variable amount (could be <100ms, could be a few seconds) 
+            const now = new Date().getTime();
+            if (now - lastYield > 300) {
+                await yieldExec();
+                console.log('yielded for ', new Date().getTime() - now, 'ms');
+                lastYield = new Date().getTime();
+
+                if (checkAbort && checkAbort()) {   // check abort flag
+                    break;
+                }
+            }
+
+
+            const { done, value } = await reader.read();
+            if (done) {
+                // If there's any remaining line, process it as well -- should never happen
+                if (chunk) {
+                    callback(chunk, idx++);
+                }
+                break;
+            }
+
+            chunk += value;
+
+            let start = 0;
+            while (true) {
+                let pos = chunk.indexOf('\n', start);
+                if (pos >= 0) {
+                    if (callback(chunk.slice(start, pos), idx++) === 'abort') {
+                        break;  // quit early
+                    }
+                    start = pos + 1;
+                } else {
+                    chunk = chunk.slice(start); // dump everything that we've processed
+                    break;  // no more lines in our chunk
+                }
+            }
+        }
+
+        console.log(`Time to gunzip & segment ${name}: ${new Date().getTime() - time}`);
+    } finally {
+        reader.releaseLock();
+    }
+}
 
 // Updates the whole component library, takes a callback for reporting progress:
 // the progress is given as list of tuples (task, [statusMessage, finished])
 export async function updateComponentLibrary(report) {
     await persist();
-    report({"Component index": ["fetching", false]})
-    let index = await fetchJson(`${SOURCE_PATH}/index.json`,
-        "Cannot fetch categories index: ");
-    let progress = {}
+
+    let progress = {};
     let updateProgress = (name, status) => {
         progress[name] = status;
         report(progress);
-    }
-    db.settings.put({key: "lastDbUpdate", value: index.created})
-    await updateCategories(index.categories,
-        // onNew
-        async (cName, sName, attr) => {
-            let name = cName + ": " + sName;
-            updateProgress(name, ["Adding components 1/2", false]);
-            let category = await addCategory(cName, sName, attr);
-            updateProgress(name, ["Updating stock 2/2", false]);
-            await updateStock(category);
-            updateProgress(name, ["Added", true]);
-            return category;
-        },
-        // onUpdateExisting
-        async (category, attr) => {
-            let cName = category.category;
-            let sName = category.subcategory;
-            let name = cName + ": " + sName;
-            updateProgress(name, ["Updating components 1/2", false]);
-            await deleteCategory(category);
-            let newCategory = await addCategory(cName, sName, attr);
-            updateProgress(name, ["Updating stock 2/2", false]);
-            await updateStock(newCategory);
-            updateProgress(name, ["Update finished", true]);
-            return newCategory;
-        },
-        // onUpdateStock
-        async (category, _) => {
-            let cName = category.category;
-            let sName = category.subcategory;
-            let name = cName + ": " + sName;
-            updateProgress(name, ["Updating stock 1/1", false]);
-            await updateStock(category);
-            updateProgress(name, ["Stock updated", true]);
-            return category;
-        },
-        // onExcessive
-        async category => {
-            let cName = category.category;
-            let sName = category.subcategory;
-            let name = cName + ": " + sName;
-            updateProgress(name, ["Removing category", false]);
-            await deleteCategory(category);
-            updateProgress(name, ["Removed", true]);
+    };
+
+    // get new db files
+    const downloadingTitle = `Downloading ${dbWebPath}`;
+    updateProgress(downloadingTitle, ["In progress", false]);
+    const resp = await fetch(dbWebPath);
+    if (resp.status === 200) {
+        const data = await resp.arrayBuffer();
+        updateProgress(downloadingTitle, ["OK", true]);
+
+        const untarTitle = `Updating database`;
+        updateProgress(untarTitle, ["In progress", false]);
+
+        const files = await untar(data);
+        for (const file of files) {
+            const basename = file.name.split('.')[0];
+            let result = await db.jsonlines.put({ name: basename, compressedData: file.buffer });
+            console.log(result);
+
+            // store copy in memory (we can load from indexeddb on startup)
+            jsonlines[basename] = file.buffer;
         }
-    );
+
+        updateProgress(untarTitle, ["OK", true]);
+
+        db.settings.put({
+            key: "lastUpdate",
+            value: resp.headers.get('Last-Modified') || new Date().toUTCString()
+        });
+
+    } else {
+        updateProgress(downloadingTitle, ["Download failed", false]);
+    }
 }
 
 // Check if the component library can be updated
 export async function checkForComponentLibraryUpdate() {
-    let index = await fetchJson(`${SOURCE_PATH}/index.json`,
-        "Cannot fetch categories index: ");
-    let updateAvailable = false;
-    let onUpdate = (category) => { updateAvailable = true; return category; }
-    await updateCategories(index.categories,
-        // onNew
-        onUpdate,
-        // onUpdateExisting
-        onUpdate,
-        // onUpdateStock
-        onUpdate,
-        // onExcessive
-        onUpdate
-    );
+    let lastUpdate = (await db.settings.get("lastUpdate"))?.value || new Date(0).toUTCString();
+
+    let head = await fetch(dbWebPath, {
+        method: 'HEAD',
+        headers: {
+            'If-Modified-Since': lastUpdate
+        }
+    });
+
+    let updateAvailable = head.status === 200;   // 304 if not modified; any error means we don't know if there's an update
     return updateAvailable;
 }
 
@@ -129,135 +214,3 @@ export async function fetchJson(path, errorIntro) {
 
     throw Error(errorIntro + `Response is not a (compressed) JSON, but ${contentType}: ` + path);
 }
-
-async function fetchText(path, errorIntro) {
-    let response = await fetch(path);
-    if (!response.ok) {
-        throw Error(errorIntro + response.statusText);
-    }
-    return await response.text();
-}
-
-// Update categories. Fetched categoryIndex and 3 callback are supplied to
-// perform the update.
-async function updateCategories(categoryIndex, onNew, onUpdateExisting, onUpdateStock, onExcessive) {
-    let updates = [];
-    let usedCategories = new Set();
-    for (const [categoryName, subcategories] of Object.entries(categoryIndex)) {
-        for ( const [subcategoryName, attributes] of Object.entries(subcategories)) {
-            let action = db.categories
-                .where({category: categoryName, subcategory: subcategoryName})
-                .first(async category => {
-                    if (category === undefined) {
-                        category = await onNew(categoryName, subcategoryName, attributes);
-                    } else if (attributes.datahash !== category.datahash ||
-                               attributes.sourcename !== category.sourcename)
-                    {
-                        category = await onUpdateExisting(category, attributes);
-                    } else if (attributes.stockhash !== category.stockhash) {
-                        category = await onUpdateStock(category);
-                    }
-
-                    if (category) {
-                        usedCategories.add(extractCategoryKey(category));
-                    }
-                });
-            updates.push(action);
-        }
-    }
-    await Promise.all(updates);
-    await db.categories.each(category => {
-        if (usedCategories.has(extractCategoryKey(category))) {
-            return;
-        }
-        onExcessive(category);
-    });
-}
-
-// Takes an array containing schema and an array of values and turns them into
-// dictionary
-function restoreObject(schema, source) {
-    return schema.reduce((obj, k, i) => {
-        obj[k] = source[i];
-        return obj;
-    }, {});
-}
-
-// Takes a JSON fetched from server and adds them to the database for the
-// corresponding category
-function addComponents(category, components) {
-    let schema = components.schema;
-    let cObjects = components.components.map(src => {
-        let obj = restoreObject(schema, src);
-        obj.category = extractCategoryKey(category);
-        return obj;
-    });
-    return db.components.bulkPut(cObjects);
-}
-
-// Add a single category and fetch all of its components
-async function addCategory(categoryName, subcategoryName, attributes) {
-    let components = await fetchJson(`${SOURCE_PATH}/${attributes.sourcename}.json.gz`,
-        `Cannot fetch components for category ${categoryName}: ${subcategoryName}: `);
-    return db.transaction("rw", db.categories, db.components, async () => {
-        let key = await db.categories.put({
-            category: categoryName,
-            subcategory: subcategoryName,
-            sourcename: attributes.sourcename,
-            datahash: attributes.datahash,
-            stockhash: attributes.stockhash
-        });
-        let category = await db.categories.get(key);
-        await addComponents(category, components);
-        return category;
-    });
-}
-
-// Fetch and update stock
-async function updateStock(category) {
-    let stock = await fetchJson(`${SOURCE_PATH}/${category.sourcename}.stock.json`,
-        `Cannot fetch stock for category ${category.category}: ${category.subcategory}: `);
-    await db.components.where({category: category.id}).modify(component =>{
-        component.stock = stock[component.lcsc];
-    });
-    // await db.transaction("rw", db.components, async () => {
-    //     let actions = [];
-    //     for (const [component, stockVal] of Object.entries(stock)) {
-    //         actions.push(db.components.update(component, {"stock": stockVal }));
-    //     }
-    //     await Promise.all(actions);
-    // });
-    let hash = await fetchText(`${SOURCE_PATH}/${category.sourcename}.stock.json.sha256`,
-        `Cannot fetch stock hash for category ${category.category}: ${category.subcategory}: `);
-    await db.categories.update(extractCategoryKey(category), {stockhash: hash});
-}
-
-// Delete given category and all of its components
-async function deleteCategory(category) {
-    await db.transaction("rw", db.components, db.categories, async () => {
-        await db.components.where({category: extractCategoryKey(category)}).delete();
-        await db.categories.delete(extractCategoryKey(category));
-    });
-}
-
-
-// See https://stackoverflow.com/questions/64114482/aborting-dexie-js-query
-// export function cancellableDexieQuery(includedTables, querierFunction) {
-//     let tx = null;
-//     let cancelled = false;
-//     const promise = db.transaction('r', includedTables, () => {
-//         if (cancelled)
-//             throw new Dexie.AbortError('Query was cancelled');
-//         tx = Dexie.currentTransaction;
-//         return querierFunction();
-//     });
-//     return [
-//         promise,
-//         () => {
-//             cancelled = true; // In case transaction hasn't been started yet.
-//             if (tx)
-//                 tx.abort(); // If started, abort it.
-//             tx = null; // Avoid calling abort twice.
-//         }
-//     ];
-// }

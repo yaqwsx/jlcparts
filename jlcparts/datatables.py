@@ -13,18 +13,23 @@ from jlcparts.partLib import PartLibraryDb
 from jlcparts.common import sha256file
 from jlcparts import attributes, descriptionAttributes
 
-def saveJson(object, filename, hash=False, pretty=False, compress=False):
-    openFn = gzip.open if compress else open
-    with openFn(filename, "wt", encoding="utf-8") as f:
-        if pretty:
-            json.dump(object, f, indent=4, sort_keys=True)
-        else:
-            json.dump(object, f, separators=(',', ':'), sort_keys=True)
-    if hash:
-        with open(filename + ".sha256", "w") as f:
-            hash = sha256file(filename)
-            f.write(hash)
-        return hash
+import tarfile
+
+from time import time
+
+def saveDatabaseFile(database, outpath, outfilename):
+    for key, value in database.items():
+        filename = os.path.join(outpath, key + ".jsonlines.gz")
+        with gzip.open(filename, "wt", encoding="utf-8") as f:
+            for entry in value:
+                json.dump(entry, f, separators=(',', ':'), sort_keys=False)
+                f.write("\n")
+
+    with tarfile.open(os.path.join(outpath, outfilename), 'w') as tar:
+        for key, value in database.items():
+            filename = os.path.join(outpath, key + ".jsonlines.gz")
+            tar.add(filename, arcname=os.path.relpath(filename, start=outpath))
+            os.unlink(filename)
 
 def weakUpdateParameters(attrs, newParameters):
     for attr, value in newParameters.items():
@@ -270,6 +275,8 @@ def extractComponent(component, schema):
             elif schItem == "url":
                 url = component.get("extra", {}).get("url", None)
                 propertyList.append(trimLcscUrl(url, component["lcsc"]))
+            elif schItem == "stock":
+                propertyList.append(component["stock"])
             elif schItem in component:
                 item = component[schItem]
                 if isinstance(item, str):
@@ -283,14 +290,11 @@ def extractComponent(component, schema):
 
 def buildDatatable(components):
     schema = ["lcsc", "mfr", "joints", "description",
-              "datasheet", "price", "img", "url", "attributes"]
+              "datasheet", "price", "img", "url", "attributes", "stock"]
     return {
         "schema": schema,
         "components": [extractComponent(x, schema) for x in components]
     }
-
-def buildStocktable(components):
-    return {component["lcsc"]: component["stock"] for component in components }
 
 def clearDir(directory):
     """
@@ -302,6 +306,28 @@ def clearDir(directory):
             os.unlink(file_path)
         elif os.path.isdir(file_path):
             shutil.rmtree(file_path)
+
+def schemaToLookup(schema):
+    lut = {}
+    for idx, key in enumerate(schema):
+        lut[key] = idx
+    return lut
+
+def updateLut(lut, item):
+    key = json.dumps(item, separators=(',', ':'), sort_keys=True)
+    if not key in lut:
+        index = len(lut)
+        lut[key] = index
+        return index
+    return lut[key]
+
+# Inverts the lut so that the Map becomes an array, with the key being the value.
+# Values must be 0-based, numeric, and contiguous, or everything will be wrong.
+def lutToArray(lutMap):
+    arr = [None] * len(lutMap)
+    for key, value in lutMap.items():
+        arr[value] = key
+    return arr
 
 
 @dataclasses.dataclass
@@ -326,26 +352,10 @@ def _map_category(val: MapCategoryParams):
     components = lib.getCategoryComponents(val.catName, val.subcatName, stockNewerThan=val.ignoreoldstock)
     if not components:
         return None
-
-    filebase = val.catName + val.subcatName
-    filebase = filebase.replace("&", "and").replace("/", "aka")
-    filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
-
-    dataTable = buildDatatable(components)
+    dataTable = buildDatatable(components) 
     dataTable.update({"category": val.catName, "subcategory": val.subcatName})
-    dataHash = saveJson(dataTable, os.path.join(val.outdir, f"{filebase}.json.gz"),
-                        hash=True, compress=True)
 
-    stockTable = buildStocktable(components)
-    stockHash = saveJson(stockTable, os.path.join(val.outdir, f"{filebase}.stock.json"), hash=True)
-
-    return {
-        "catName": val.catName,
-        "subcatName": val.subcatName,
-        "sourcename": filebase,
-        "datahash": dataHash,
-        "stockhash": stockHash
-    }
+    return dataTable
 
 @click.command()
 @click.argument("library", type=click.Path(dir_okay=False))
@@ -358,6 +368,8 @@ def buildtables(library, outdir, ignoreoldstock, jobs):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
+    t0 = time()
+
     lib = PartLibraryDb(library)
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)
@@ -377,18 +389,50 @@ def buildtables(library, outdir, ignoreoldstock, jobs):
         for i, result in enumerate(pool.imap_unordered(_map_category, params)):
             if result is None:
                 continue
-            catName, subcatName = result["catName"], result["subcatName"]
+            catName = result["category"] #.lower()
+            subcatName = result["subcategory"] #.lower()
+            sourceName = f"{catName}__x__{subcatName}"
             print(f"{((i) / total * 100):.2f} % {catName}: {subcatName}")
-            if catName not in categoryIndex:
-                categoryIndex[catName] = {}
-            assert subcatName not in categoryIndex[catName]
-            categoryIndex[catName][subcatName] = {
-                "sourcename": result["sourcename"],
-                "datahash": result["datahash"],
-                "stockhash": result["stockhash"]
-            }
-    index = {
-        "categories": categoryIndex,
-        "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
+            if sourceName not in categoryIndex:
+                categoryIndex[sourceName] = result
+            else:
+                categoryIndex[sourceName]["components"] += result["components"]    # combine for categories that are only different because of case
+
+    t1 = time()
+    # db holds the data we're putting into our database file
+    db = {
+        "subcategories": [schemaToLookup(['subcategory', 'category', 'subcategoryIdx'])],
+        "components": [schemaToLookup(['lcsc', 'mfr', 'description', 'attrsIdx', 'stock', 'subcategoryIdx', 'joints', 'datasheet', 'price', 'img', 'url'])],
+        "attributes-lut": {}
     }
-    saveJson(index, os.path.join(outdir, "index.json"), hash=True)
+
+    # fill database
+    s = None    # schema lookup
+    subcatIndex = 0
+    for sourceName, subcatEntry in categoryIndex.items():        
+        if s is None:
+            s = schemaToLookup(subcatEntry["schema"])  # all schema will be the same
+
+        subcatIndex += 1
+        db["subcategories"] += [[subcatEntry["subcategory"], subcatEntry["category"], subcatIndex]]
+
+        for comp in subcatEntry["components"]:
+            db["components"] += [[
+                comp[s["lcsc"]],
+                comp[s["mfr"]],
+                comp[s["description"]],
+                [updateLut(db["attributes-lut"], [attrName, value]) for attrName,value in comp[s["attributes"]].items()],
+                comp[s["stock"]],
+                subcatIndex,
+                comp[s["joints"]],
+                comp[s["datasheet"]],
+                comp[s["price"]],
+                comp[s["img"]],
+                comp[s["url"]]
+            ]]
+
+    # invert the lut
+    db["attributes-lut"] = [json.loads(str) for str in lutToArray(db["attributes-lut"])]
+    saveDatabaseFile(db, outdir, "all.jsonlines.tar")
+
+    print(f"Table extraction took {(t1 - t0)}, reformat into one file took {time() - t1}")

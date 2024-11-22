@@ -1,6 +1,6 @@
 import re
 
-def chipResistor(description):
+def chipResistor(description: str) -> dict:
     attrs = {}
 
     matches = re.search(r"\d+(\.\d+)?[a-zA-Z]?Ohms", description)
@@ -17,7 +17,7 @@ def chipResistor(description):
 
     return attrs
 
-def capacitor(description):
+def capacitor(description: str) -> dict:
     attrs = {}
 
     matches = re.search(r"\d+(\.\d+)?[a-zA-Z]?F", description)

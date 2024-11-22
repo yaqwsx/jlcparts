@@ -652,13 +652,16 @@ class CategoryFilter extends React.Component {
             query = db.components.where("category").anyOf(this.collectActiveCategories());
 
         if (this.state.searchString.length !== 0) {
-            const words = this.state.searchString.split(/\s+/)
+            let words = this.state.searchString.split(/\s+/)
                 .filter(x => x.length > 0)
                 .map(x => x.toLocaleLowerCase());
-            if (words.length > 0) {
+            let notWords = words.filter(w => w[0] === '~').map(w => w.substring(1));
+            words = words.filter(w => w[0] !== '~');
+            
+            if (words.length > 0 || notWords.length > 0) {
                 query = query.filter(component => {
                     const text = componentText(component);
-                    return words.every(word => text.includes(word));
+                    return words.every(word => text.includes(word)) && !notWords.some(word => text.includes(word));
                 });
             }
         }
@@ -743,7 +746,7 @@ class CategoryFilter extends React.Component {
                     className="block flex-1 bg-white appearance-none border-2 border-gray-500 rounded w-full
                                 py-1 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
                                 focus:border-blue-500"
-                    placeholder={this.state.allCategories ? "At least 3 characters" : undefined}
+                    placeholder={"Enter search terms, prefixing unwanted terms with '~'. " + (this.state.allCategories ? "At least 3 characters" : "")}
                     value={this.state.searchString}
                     onChange={this.handleFulltextChange}/>
                 <button className="flex-none block ml-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleClear}>

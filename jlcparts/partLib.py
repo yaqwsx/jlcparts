@@ -488,7 +488,12 @@ def getLcscExtraNew(lcscNumber, retries=10):
                     # The component was not found on LCSC - probably discontinued
                     return {}
                 if resJson["code"] != 200:
-                    raise RuntimeError(f"{resJson['code']}: {resJson['message']}")
+                    if resJson["code"] == 437:  # Rate limit exceeded
+                        print(f"Rate limit exceeded for {lcscNumber}. Retrying in 1 minute... ({retries-1} retries left)")
+                        time.sleep(60)
+                        return getLcscExtraNew(lcscNumber, retries=retries-1)
+                    else:
+                        raise RuntimeError(f"{resJson['code']}: {resJson['message']}")
                 params = resJson["result"]
             except TimeoutError as e:
                 raise e from None

@@ -54,6 +54,7 @@ def pullPreferredComponents():
         )
 
         body = resp.json()
+        print(f"Fetched page {currentPage}/{body['data']['componentPageInfo']['pages']} with {len(body['data']['componentPageInfo']['list'])} components")
         if len(body["data"]["componentPageInfo"]["list"]) == 0:
             break
 
@@ -61,9 +62,6 @@ def pullPreferredComponents():
             components.add(c)
 
         if currentPage >= body["data"]["componentPageInfo"]["pages"]:
-            break
-
-        if not body["data"]["componentPageInfo"]["hasNextPage"]:
             break
 
     return components

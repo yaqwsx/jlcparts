@@ -39,7 +39,7 @@ def dbToComp(comp):
     comp["preferred"] = bool(comp["preferred"])
     return comp
 
-def fix_description(description, raw_extra_json):
+def fixDescription(description, raw_extra_json):
     """ Fix empty descriptions.
 
     At some point, JLC started returning empty descriptions in
@@ -65,7 +65,7 @@ class PartLibraryDb:
     def __init__(self, filepath=None):
         self.conn = sqlite3.connect(filepath)
         self.conn.row_factory = sqlite3.Row
-        self.conn.create_function("maybe_fix_description", 2, fix_description)
+        self.conn.create_function("maybeFixDescription", 2, fixDescription)
         self.transation = False
         self.categoryCache = {}
         self.manufacturerCache = {}
@@ -269,7 +269,7 @@ class PartLibraryDb:
 
         catId = self.getOrCreateCategoryId(component["category"], component["subcategory"])
         extra = json.dumps(c["extra"])
-        desc = fix_description(c["description"], extra)
+        desc = fixDescription(c["description"], extra)
 
         c = component
         data = [lcscToDb(c["lcsc"]), catId, c["mfr"], c["package"], c["joints"], manId,
@@ -298,7 +298,7 @@ class PartLibraryDb:
         self.conn.execute(f"""
             UPDATE components
             SET
-                description = maybe_fix_description(description, extra),
+                description = maybeFixDescription(description, extra),
                 last_update = ?
             WHERE
                 lcsc = ? AND
@@ -355,8 +355,8 @@ class PartLibraryDb:
         print("Fixing empty descriptions ... ")
         self.conn.execute("""
             UPDATE components
-            SET description = maybe_fix_description(description, extra)
-            WHERE description = '' OR description IS NULL""")
+            SET description = maybeFixDescription(description, extra)
+            WHERE description = ''""")
         self._commit()
 
     def categories(self):

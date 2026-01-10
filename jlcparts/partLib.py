@@ -45,10 +45,9 @@ def fixDescription(description, raw_extra_json):
     At some point, JLC started returning empty descriptions in
     their parts CSV, but the description is still available in
     the 'extra' JSON in the 'description' field.
-    
-    This is a SQLite 'user defined function', the 'extra' here
-    is the raw extra column from the database, not the already
-    parsed 'extra' that is used elsewhere.
+
+    Note that this takes the raw JSON string, not the already
+    parsed 'extra' dict - this lets it be used as a SQLite UDF.
     """
 
     if not description:

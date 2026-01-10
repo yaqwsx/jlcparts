@@ -38,16 +38,15 @@ def pullPreferredComponents():
         "X-XSRF-TOKEN": token,
     }
     PAGE_SIZE = 1000
+    MAX_PAGES = 10
 
-    currentPage = 1
     components = set()
-    while True:
+    for currentPage in range(1, MAX_PAGES + 1):
         body = {
             "currentPage": currentPage,
             "pageSize": PAGE_SIZE,
             "preferredComponentFlag": True
         }
-
         resp = requests.post(
             "https://jlcpcb.com/api/overseas-pcb-order/v1/shoppingCart/smtGood/selectSmtComponentList",
             headers=headers,
@@ -55,12 +54,17 @@ def pullPreferredComponents():
         )
 
         body = resp.json()
+        if len(body["data"]["componentPageInfo"]["list"]) == 0:
+            break
+
         for c in [x["componentCode"] for x in body["data"]["componentPageInfo"]["list"]]:
             components.add(c)
 
+        if currentPage >= body["data"]["componentPageInfo"]["pages"]:
+            break
+
         if not body["data"]["componentPageInfo"]["hasNextPage"]:
             break
-        currentPage += 1
 
     return components
 

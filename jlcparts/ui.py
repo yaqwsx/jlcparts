@@ -74,6 +74,14 @@ def updatePreferred(db):
     lib = PartLibraryDb(db)
     lib.setPreferred(preferred)
 
+@click.command()
+@click.argument("db", type=click.Path(dir_okay=False, writable=True))
+def fixDescriptions(db):
+    """
+    Fix empty descriptions in the database if the description is available in the JSON.
+    """
+    lib = PartLibraryDb(db)
+    lib.fixEmptyDescriptions()
 
 @click.command()
 @click.argument("libraryFilename")
@@ -169,6 +177,7 @@ cli.add_command(updatePreferred)
 cli.add_command(fetchDetails)
 cli.add_command(fetchTable)
 cli.add_command(testComponent)
+cli.add_command(fixDescriptions)
 
 if __name__ == "__main__":
     cli()

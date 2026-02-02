@@ -7,7 +7,7 @@ on:
 jobs:
   build_and_update:
     name: "Update component database and frontend"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     environment: github-pages
     steps:
       - name: Maximize build space
@@ -86,7 +86,7 @@ jobs:
           retention-days: 14
   deploy:
     name: "Deploy"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build_and_update
     if: github.ref == 'refs/heads/master'
     steps:

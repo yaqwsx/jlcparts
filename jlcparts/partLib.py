@@ -39,10 +39,32 @@ def dbToComp(comp):
     comp["preferred"] = bool(comp["preferred"])
     return comp
 
+def fixDescription(description, raw_extra_json):
+    """ Fix empty descriptions.
+
+    At some point, JLC started returning empty descriptions in
+    their parts CSV, but the description is still available in
+    the 'extra' JSON in the 'description' field.
+
+    Note that this takes the raw JSON string, not the already
+    parsed 'extra' dict - this lets it be used as a SQLite UDF.
+    """
+
+    if not description:
+        try:
+            e = json.loads(raw_extra_json)
+            desc = e.get("description", "")
+            return desc
+        except Exception:
+            pass
+    return description
+
+
 class PartLibraryDb:
     def __init__(self, filepath=None):
         self.conn = sqlite3.connect(filepath)
         self.conn.row_factory = sqlite3.Row
+        self.conn.create_function("maybeFixDescription", 2, fixDescription)
         self.transation = False
         self.categoryCache = {}
         self.manufacturerCache = {}
@@ -245,11 +267,13 @@ class PartLibraryDb:
         self.manufacturerCache[m] = manId
 
         catId = self.getOrCreateCategoryId(component["category"], component["subcategory"])
+        extra = json.dumps(c["extra"])
+        desc = fixDescription(c["description"], extra)
 
         c = component
         data = [lcscToDb(c["lcsc"]), catId, c["mfr"], c["package"], c["joints"], manId,
-                c["basic"], c["description"], c["datasheet"], c["stock"],
-                json.dumps(c["price"]), int(time.time()), json.dumps(c["extra"])]
+                c["basic"], desc, c["datasheet"], c["stock"], json.dumps(c["price"]),
+                int(time.time()), extra]
         if flag is not None:
             data.append(flag)
         cur.execute(f"""
@@ -267,6 +291,18 @@ class PartLibraryDb:
             SET extra = ?, last_update = ?
             WHERE lcsc = ?
             """, (json.dumps(extra), int(time.time()), lcscToDb(lcsc)))
+        # The caller doesn't have the description, but a followon update
+        # can fix it if it was inserted as an empty string.  This sees
+        # the updated 'extra' column from the previous statement.
+        self.conn.execute(f"""
+            UPDATE components
+            SET
+                description = maybeFixDescription(description, extra),
+                last_update = ?
+            WHERE
+                lcsc = ? AND
+                description = ''
+        """, (int(time.time()), lcscToDb(lcsc)))
         self._commit()
 
     def updateJlcPart(self, component, flag=None):
@@ -312,6 +348,14 @@ class PartLibraryDb:
         cursor.execute("UPDATE components SET preferred = 0")
         cursor.execute(f"UPDATE components SET preferred = 1 WHERE lcsc IN ({','.join(len(lcscSet) * ['?'])})",
                        [lcscToDb(x) for x in lcscSet])
+        self._commit()
+
+    def fixEmptyDescriptions(self):
+        print("Fixing empty descriptions ... ")
+        self.conn.execute("""
+            UPDATE components
+            SET description = maybeFixDescription(description, extra)
+            WHERE description = ''""")
         self._commit()
 
     def categories(self):

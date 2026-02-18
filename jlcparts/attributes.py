@@ -7,16 +7,16 @@ import math
 # cases: there are lots of inconsistencies and typos in the attributes. So we
 # try to deliver best effort results
 
-def erase(string, what):
+def erase(string: str, what: list[str]) -> str:
     """
-    Given a  string and a list of string, removes all occurences of items from
-    what in the string
+    Given a string and a list of string, removes all occurences of items from
+    what in the string. Case sensitive.
     """
     for x in what:
         string = string.replace(x, "")
     return string
 
-def stringAttribute(value, name="default"):
+def stringAttribute(value: str, name: str = "default") -> dict:
     return {
         "format": "${" + name +"}",
         "primary": name,
@@ -25,10 +25,10 @@ def stringAttribute(value, name="default"):
         }
     }
 
-def readWithSiPrefix(value):
+def readWithSiPrefix(value: str) -> float | str:
     """
     Given a string in format <number><unitPrefix> (without the actual unit),
-    read its value. E.g., 10k ~> 10000, 10m ~> 0.01
+    read its value (or "NaN"). E.g., 10k ~> 10000, 10m ~> 0.01
     """
     value = value.strip()
     if value == "-" or value == "" or value == "null":
@@ -45,15 +45,15 @@ def readWithSiPrefix(value):
         "k": 1e3,
         "K": 1e3,
         "M": 1e6,
-        "G": 1e9
+        "G": 1e9,
     }
     if value[-1].isalpha() or value[-1] == "?": # Again, watch for the ? typo
         return float(value[:-1]) * unitPrexies[value[-1]]
     return float(value)
 
-def readResistance(value):
+def readResistance(value: str) -> float | str:
     """
-    Given a string, try to parse resistance and return it as Ohms (float)
+    Given a string, try to parse resistance and return it as Ohms (float) or "NaN".
     """
     value = erase(value, ["Ω", "Ohms", "Ohm", "(Max)", "Max"]).strip()
     value = value.replace(" ", "") # Sometimes there are spaces after decimal place
@@ -75,9 +75,9 @@ def readResistance(value):
         value = float(value)
     return value
 
-def readCurrent(value):
+def readCurrent(value: str) -> float | str:
     """
-    Given a string, try to parse current and return it as Amperes (float)
+    Given a string, try to parse current and return it as Amperes (float) or "NaN".
     """
     value = erase(value, ["PNP"])
     value = value.replace("A", "").strip()
@@ -87,7 +87,10 @@ def readCurrent(value):
     v = readWithSiPrefix(value)
     return v
 
-def readVoltage(value):
+def readVoltage(value: str) -> float | str:
+    """
+    Given a string, try to parse voltage and return it as Volts (float) or "NaN".
+    """
     value = value.replace("v", "V")
     value = value.replace("V-", "V")
     value = value.replace("V", "").strip()
@@ -95,9 +98,9 @@ def readVoltage(value):
         return "NaN"
     return readWithSiPrefix(value)
 
-def readPower(value):
+def readPower(value: str) -> float | str:
     """
-    Parse power value (in watts), it can also handle fractions
+    Parse power value (in watts) and return it as float or "NaN". Can also handle fractions.
     """
     if value in ["-", "--"] or "null" in value:
         return "NaN"
@@ -128,7 +131,7 @@ def readInductance(value):
     value = value.replace("H", "").strip()
     return readWithSiPrefix(value)
 
-def resistanceAttribute(value):
+def resistanceAttribute(value: str) -> dict:
     if ";" in value:
         # This is a resistor array
         values = value.split(value)
@@ -150,7 +153,7 @@ def resistanceAttribute(value):
             }
         }
 
-def impedanceAttribute(value):
+def impedanceAttribute(value: str) -> dict:
     value = readResistance(value)
     return {
         "format": "${impedance}",
@@ -161,9 +164,10 @@ def impedanceAttribute(value):
     }
 
 
-def voltageAttribute(value):
+def voltageAttribute(value: str) -> dict:
     value = re.sub(r"\(.*?\)", "", value)
-     # Remove multiple current values
+
+    # Remove multiple current values
     value = value.split("x")[-1]
     value = value.split("/")[-1]
     value = value.split(",")[-1]
@@ -189,7 +193,7 @@ def voltageAttribute(value):
         }
     }
 
-def currentAttribute(value):
+def currentAttribute(value: str) -> dict:
     if value.lower().strip() == "adjustable":
         return {
             "format": "${current}",
@@ -228,7 +232,7 @@ def currentAttribute(value):
             }
         }
 
-def powerAttribute(value):
+def powerAttribute(value: str) -> dict:
     value = re.sub(r"\(.*?\)", "", value)
     # Replace V/W typo
     value = value.replace("V", "W")
@@ -244,7 +248,7 @@ def powerAttribute(value):
         }
     }
 
-def countAttribute(value):
+def countAttribute(value: str) -> dict:
     if value == "-":
         return {
             "format": "${count}",
@@ -275,7 +279,7 @@ def countAttribute(value):
     }
 
 
-def capacitanceAttribute(value):
+def capacitanceAttribute(value: str) -> dict:
     # There are a handful of components, that feature multiple capacitance
     # values, for the sake of the simplicity, take the last one.
     value = readCapacitance(value.split(";")[-1].strip())
@@ -287,7 +291,7 @@ def capacitanceAttribute(value):
         }
     }
 
-def inductanceAttribute(value):
+def inductanceAttribute(value: str) -> dict:
     value = readInductance(value)
     return {
         "format": "${inductance}",
@@ -308,12 +312,13 @@ def frequencyAttribute(value):
     }
 
 
-def rdsOnMaxAtIdsAtVgs(value):
+def rdsOnMaxAtIdsAtVgs(value: str) -> dict:
     """
     Given a string in format "<resistance> @ <current>, <voltage>" parse it and
-    return it as structured value
+    return it as structured value.
     """
-    def readRds(v):
+    def readRds(v: str) -> tuple[float | str, float | str, float | str]:
+        """ Returns a tuple of (R, I, V), each as float or "NaN" """
         if v == "-":
             return "NaN", "NaN", "NaN"
         matched = re.fullmatch(r"([\w.]*)\s*[@\s]\s*([-\w.]*)\s*[,，]\s*([-~\w.]*)").groups()
@@ -325,6 +330,7 @@ def rdsOnMaxAtIdsAtVgs(value):
         return (readResistance(resistance),
                 readCurrent(matched.group(2)),
                 readVoltage(voltage))
+
     if value.count(",") == 3 or ";" in value:
         # Double P & N MOSFET
         if ";" in value:
@@ -358,15 +364,16 @@ def rdsOnMaxAtIdsAtVgs(value):
             }
         }
 
-def rdsOnMaxAtVgsAtIds(value):
+def rdsOnMaxAtVgsAtIds(value: str) -> dict:
     """
     Given a string in format "<resistance> @ <voltage>, <current>" parse it and
-    return it as structured value
+    return it as structured value.
     """
-    def readRds(v):
+    def readRds(v: str) -> tuple[float | str, float | str, float | str]:
+        """ Returns a tuple of (R, V, I), each as float or "NaN" """
         if v == "-":
             return "NaN", "NaN", "NaN"
-        #
+        
         match = re.fullmatch(
                 r"\s*([\w.]+)\s*(?:[@\s]\s*([-~\w.]+?)\s*(?:(?:[,，]|(?<=[vam])(?=\d))([-\w.]+)\s*)?)?",
                 v,
@@ -438,7 +445,7 @@ def rdsOnMaxAtVgsAtIds(value):
         }
 
 
-def continuousTransistorCurrent(value, symbol):
+def continuousTransistorCurrent(value: str, symbol: str) -> dict:
     """
     Can parse values like '10A', '10A,12A', '1OA(Tc)'
     """
@@ -469,9 +476,9 @@ def continuousTransistorCurrent(value, symbol):
             }
         }
 
-def drainToSourceVoltage(value):
+def drainToSourceVoltage(value: str) -> dict:
     """
-    Can parse single or double voltage values"
+    Can parse single or double voltage values.
     """
     value = value.replace("A", "V") # There are some typos - current instead of voltage
     if "," in value:
@@ -496,9 +503,9 @@ def drainToSourceVoltage(value):
             }
         }
 
-def powerDissipation(value):
+def powerDissipation(value: str) -> dict:
     """
-    Parse single or double power dissipation into structured value
+    Parse single or double power dissipation into structured value.
     """
     value = re.sub(r"\(.*?\)", "", value) # Remove all notes about temperature
     value = value.replace("V", "W") # Common typo
@@ -535,11 +542,12 @@ def powerDissipation(value):
             }
         }
 
-def vgsThreshold(value):
+def vgsThreshold(value: str) -> dict:
     """
     Parse single or double value in format '<voltage> @ <current>'
     """
-    def readVgs(v):
+    def readVgs(v: str) -> tuple[float | str, float | str]:
+        """ Returns a tuple of (V, I), each as float or "NaN" """
         if value == "-":
             return "NaN", "NaN"
         voltage, current = re.match(r"([-\w.]*)(?:[@| ]([-\w.]*))?", v).groups()
@@ -574,7 +582,7 @@ def vgsThreshold(value):
             }
         }
 
-def esr(value):
+def esr(value: str) -> dict:
     """
     Parse equivalent series resistance in the form '<resistance> @ <frequency>'
     """
@@ -609,7 +617,7 @@ def esr(value):
             }
         }
 
-def rippleCurrent(value):
+def rippleCurrent(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -638,7 +646,7 @@ def rippleCurrent(value):
         }
     }
 
-def sizeMm(value):
+def sizeMm(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -661,7 +669,7 @@ def sizeMm(value):
         }
     }
 
-def forwardVoltage(value):
+def forwardVoltage(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -687,13 +695,13 @@ def forwardVoltage(value):
         }
     }
 
-def removeColor(string):
+def removeColor(string: str) -> str:
     """
-    If there is a color name in the string, remove it
+    Removes color names from string, if present.
     """
     return erase(string, ["Red", "Green", "Blue", "Orange", "Yellow"])
 
-def voltageRange(value):
+def voltageRange(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -732,7 +740,7 @@ def voltageRange(value):
             }
         }
 
-def clampingVoltage(value):
+def clampingVoltage(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -765,11 +773,11 @@ def clampingVoltage(value):
             }
         }
 
-def vceBreakdown(value):
+def vceBreakdown(value: str) -> dict:
     value = erase(value, "PNP").split(",")[0]
     return voltageAttribute(value)
 
-def vceOnMax(value):
+def vceOnMax(value: str) -> dict:
     matched = re.match(r"(.*)@(.*),(.*)", value)
     if matched:
         vce = readVoltage(matched.group(1))
@@ -789,7 +797,7 @@ def vceOnMax(value):
         }
     }
 
-def temperatureAttribute(value):
+def temperatureAttribute(value: str) -> dict:
     if value == "-":
         return {
             "format": "-",
@@ -812,7 +820,7 @@ def temperatureAttribute(value):
         }
     }
 
-def capacityAtVoltage(value):
+def capacityAtVoltage(value: str) -> dict:
     """
     Parses <capacity> @ <voltage>
     """
@@ -825,7 +833,7 @@ def capacityAtVoltage(value):
                 "voltage": ["NaN", "voltage"]
             }
         }
-    def readTheTuple(value):
+    def readTheTuple(value: str) -> tuple:
         try:
             c, v = tuple(value.split("@"))
         except:
@@ -865,7 +873,7 @@ def capacityAtVoltage(value):
             }
         }
 
-def chargeAtVoltage(value):
+def chargeAtVoltage(value: str) -> dict:
     """
     Parses <charge> @ <voltage>
     """
@@ -878,7 +886,8 @@ def chargeAtVoltage(value):
                 "voltage": ["NaN", "voltage"]
             }
         }
-    def readTheTuple(value):
+        
+    def readTheTuple(value: str) -> tuple:
         match = re.match(r"(?P<cap>.*?)(\s*[ @](?P<voltage>.*))?", value.strip())
         if match is None:
             raise RuntimeError(f"Cannot parse charge at voltage for {value}")

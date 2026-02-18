@@ -618,6 +618,11 @@ class CategoryFilter extends React.Component {
             categories: {},
             allCategories: false,
             searchString: "",
+            searchFulltextRegex: false,
+            searchFulltextRegexError: null,
+            searchMfrString: "",
+            searchMfrRegex: false,
+            searchMfrRegexError: null,
             abort: () => null
         }
     }
@@ -643,7 +648,7 @@ class CategoryFilter extends React.Component {
         this.state.abort();
         let query;
         if (this.state.allCategories) {
-            if (this.state.searchString.length < 3) { // prevent high ram usage
+            if (this.state.searchString.length < 3 && this.state.searchMfrString.length < 3) { // prevent high ram usage
                 return [];
             }
             query = db.components;
@@ -651,13 +656,53 @@ class CategoryFilter extends React.Component {
         else
             query = db.components.where("category").anyOf(this.collectActiveCategories());
 
-        if (this.state.searchString.length !== 0) {
-            const words = this.state.searchString.split(/\s+/)
-                .filter(x => x.length > 0)
-                .map(x => x.toLocaleLowerCase());
-            if (words.length > 0) {
+        const prepareWords = text => text.split(/\s+/)
+            .map(x => x.trim().toLocaleLowerCase())
+            .filter(x => x.length > 0);
+
+        const prepareRegex = (text, onError) => {
+            text = text.trim();
+            if(!text) return;
+
+            try {
+                return new RegExp(text, "i");
+            }catch(e) {
+                onError(e.message.replace('Invalid regular expression: ', ''));
+            }
+        }
+
+        this.state.searchFulltextRegexError = null;
+        if(this.state.searchFulltextRegex) {
+            const regex = prepareRegex(this.state.searchString, err => this.state.searchFulltextRegexError = err);
+            if(regex) {
                 query = query.filter(component => {
                     const text = componentText(component);
+                    return regex.test(text);
+                });
+            }
+        }else{
+            const words = prepareWords(this.state.searchString);
+            if(words.length) {
+                query = query.filter(component => {
+                    const text = componentText(component);
+                    return words.every(word => text.includes(word));
+                });
+            }
+        }
+        
+        this.state.searchMfrRegexError = null;
+        if(this.state.searchMfrRegex) {
+            const regex = prepareRegex(this.state.searchMfrString, err => this.state.searchMfrRegexError = err);
+            if(regex) {
+                query = query.filter(component => {
+                    return regex.test(component.mfr);
+                });
+            }
+        }else{
+            const words = prepareWords(this.state.searchMfrString);
+            if(words.length) {
+                query = query.filter(component => {
+                    const text = component.mfr;
                     return words.every(word => text.includes(word));
                 });
             }
@@ -699,9 +744,9 @@ class CategoryFilter extends React.Component {
         this.setState(produce(this.state, this.selectNone), this.notifyParent);
     }
 
-    handleFulltextChange = e => {
+    handleInputChange = (recipe) => {
         this.setState(produce(this.state, draft => {
-            draft.searchString = e.target.value;
+            recipe(draft);
             if (!draft.allCategories && this.collectActiveCategories().length === 0)
                 this.selectAll(draft);
         }), () => {
@@ -710,9 +755,38 @@ class CategoryFilter extends React.Component {
         });
     }
 
+    handleFulltextChange = e => {
+        this.handleInputChange(draft => {
+            draft.searchString = e.target.value;
+        });
+    }
+
+    handleFulltextRegexCheckboxChange = e => {
+        this.handleInputChange(draft => {
+            draft.searchFulltextRegex = e.target.checked;
+        });
+    }
+
+    handleMfrTextChange = e => {
+        this.handleInputChange(draft => {
+            draft.searchMfrString = e.target.value;
+        });
+    }
+    
+    handleMfrRegexCheckboxChange = e => {
+        this.handleInputChange(draft => {
+            draft.searchMfrRegex = e.target.checked;
+        });
+    }
+
     handleClear = () => {
         this.setState(produce(this.state, draft => {
             draft.searchString = "";
+            draft.searchFulltextRegex = false;
+            draft.searchFulltextRegexError = null;
+            draft.searchMfrString = "";
+            draft.searchMfrRegex = false;
+            draft.searchMfrRegexError = null;
             if (draft.allCategories) {
                 this.selectNone(draft);
             }
@@ -734,9 +808,14 @@ class CategoryFilter extends React.Component {
                 <button className="block flex-none mx-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleSelectNone}>
                     Select none
                 </button>
+
+                <button className="flex-none block ml-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleClear}>
+                    Clear search
+                </button>
             </div>
-            <div className="w-full flex p-2">
-                <label className="flex-none block py-1 mr-2">
+
+            <div className="w-full flex p-2 pb-0">
+                <label className="flex-none block py-1 mr-2" title="Searches MFR#, description, LCSC#">
                     Contains text:
                 </label>
                 <input type="text"
@@ -746,11 +825,42 @@ class CategoryFilter extends React.Component {
                     placeholder={this.state.allCategories ? "At least 3 characters" : undefined}
                     value={this.state.searchString}
                     onChange={this.handleFulltextChange}/>
-                <button className="flex-none block ml-2 bg-blue-500 hover:bg-blue-700 text-black py-1 px-2 rounded" onClick={this.handleClear}>
-                    Clear search
-                </button>
+                
+                <span class="flex items-center" title="If unchecked, seaches individual words.">
+                    <label className="mx-2">
+                        Regex:
+                    </label>
+                    <input type="checkbox" checked={this.state.searchFulltextRegex} onChange={this.handleFulltextRegexCheckboxChange} />
+                </span>
             </div>
-            <div className="w-full flex p-2">
+            { this.state.searchFulltextRegexError
+                ? <p class="p-2 pt-1 text-red-500">Regex error: { this.state.searchFulltextRegexError }</p> 
+                : null }
+
+            <div className="w-full flex p-2 pb-0">
+                <label className="flex-none block py-1 mr-2">
+                    MFR# contains:
+                </label>
+                <input type="text"
+                    className="block flex-1 bg-white appearance-none border-2 border-gray-500 rounded w-full
+                                py-1 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white
+                                focus:border-blue-500"
+                    placeholder={this.state.allCategories ? "At least 3 characters" : undefined}
+                    value={this.state.searchMfrString}
+                    onChange={this.handleMfrTextChange}/>
+                    
+                <span class="flex items-center" title="If unchecked, seaches individual words.">
+                    <label className="mx-2">
+                        Regex:
+                    </label>
+                    <input type="checkbox" checked={this.state.searchMfrRegex} onChange={this.handleMfrRegexCheckboxChange} />
+                </span>
+            </div>
+            { this.state.searchMfrRegexError
+                ? <p class="p-2 pt-1 text-red-500">Regex error: { this.state.searchMfrRegexError }</p> 
+                : null }
+
+            <div className="w-full flex p-2 pt-4">
                 <Link activeClass="active"
                     className="w-full md:w-1/2 block md:mr-2 bg-gray-500 hover:bg-gray-700 text-black py-1 px-2 rounded text-center"
                     to="results" spy={true} smooth={true} duration={100} >

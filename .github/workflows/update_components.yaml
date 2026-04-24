@@ -36,31 +36,49 @@ jobs:
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}
           LCSC_SECRET: ${{ secrets.LCSC_SECRET }}
-          JLCPCB_KEY: ${{ secrets.JLCPCB_KEY }}
-          JLCPCB_SECRET: ${{ secrets.JLCPCB_SECRET }}
+          JLCPCB_APP_ID: ${{ secrets.JLCPCB_APP_ID }}
+          JLCPCB_ACCESS_KEY: ${{ secrets.JLCPCB_ACCESS_KEY }}
+          JLCPCB_SECRET_KEY: ${{ secrets.JLCPCB_SECRET_KEY }}
         run: |
           set -x
           sudo pip3 install -e .
 
-          wget -q https://yaqwsx.github.io/jlcparts/data/cache.zip
-          for seq in $(seq -w 01 30); do
-            wget -q https://yaqwsx.github.io/jlcparts/data/cache.z$seq || true
+          if [ "$GITHUB_REPOSITORY" = 'yaqwsx/jlcparts-dev' ]; then
+            export BASEURL=https://jlcparts-dev.honzamrazek.cz
+          else
+            export BASEURL=https://yaqwsx.github.io/jlcparts
+          fi
+          export DATAURL=${BASEURL}/data
+
+          wget -q ${DATAURL}/cache.zip
+          for seq in $(seq -f "%02g" 1 99) $(seq 100 200); do
+            wget -q ${DATAURL}/cache.z$seq || true
           done
 
           7z x cache.zip
-          for seq in $(seq -w 01 30); do
-            rm cache.z$seq || true
+          for seq in $(seq -f "%02g" 1 99) $(seq 100 200); do
+            rm -f cache.z$seq || true
           done
 
-          jlcparts fetchtable parts.csv
+          wget -q ${DATAURL}/parts.checkpoint.json || rm -f parts.checkpoint.json
 
-          jlcparts getlibrary --age 10000 \
-                              --limit 1000 \
-                              parts.csv cache.sqlite3
+          fetch_seconds=${JLCPARTS_FETCH_SECONDS:-2400}
+          lcsc_age=${JLCPARTS_LCSC_AGE:-10000}
+          lcsc_limit=${JLCPARTS_LCSC_LIMIT:-1000}
+          jlcparts fetchdb --verbose \
+                           --checkpoint parts.checkpoint.json \
+                           --max-seconds "$fetch_seconds" \
+                           --age "$lcsc_age" \
+                           --limit "$lcsc_limit" \
+                           cache.sqlite3
           jlcparts updatepreferred cache.sqlite3
           jlcparts buildtables --jobs 0 \
                                --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data
+
+          if [ -f parts.checkpoint.json ]; then
+            cp parts.checkpoint.json web/build/data/parts.checkpoint.json
+          fi
 
           rm -f web/build/data/cache.z*
           zip -s 50m web/build/data/cache.zip cache.sqlite3
@@ -71,12 +89,6 @@ jobs:
         with:
           name: web_build
           path: web_build.tar.gz
-          retention-days: 14
-      - name: Upload table
-        uses: actions/upload-artifact@v4
-        with:
-          name: component_table
-          path: parts.csv
           retention-days: 14
   deploy:
     name: "Deploy"

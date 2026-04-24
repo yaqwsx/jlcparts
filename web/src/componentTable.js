@@ -70,6 +70,9 @@ export function getImageUrl(img, size) {
 }
 
 export function restoreLcscUrl(slug, lcsc) {
+    if (!slug) {
+        return `https://www.lcsc.com/search?q=${encodeURIComponent(lcsc)}`;
+    }
     return `https://lcsc.com/product-detail/${slug}_${lcsc}.html`;
 }
 

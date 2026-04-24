@@ -34,10 +34,43 @@ def dbToComp(comp):
     comp = dict(comp)
     comp["lcsc"] = lcscFromDb(comp["lcsc"])
     comp["price"] = json.loads(comp["price"])
-    comp["extra"] = json.loads(comp["extra"])
+    comp["extra"] = json.loads(comp["extra"] or "{}")
+    comp["jlc_extra"] = json.loads(comp.get("jlc_extra") or "{}")
     comp["basic"] = bool(comp["basic"])
     comp["preferred"] = bool(comp["preferred"])
     return comp
+
+def _jsonLoadsDict(value):
+    if not value:
+        return {}
+    try:
+        result = json.loads(value)
+    except Exception:
+        return {}
+    return result if isinstance(result, dict) else {}
+
+def _manufacturerFromExtra(extra):
+    if not isinstance(extra, dict):
+        return ""
+    manufacturer = extra.get("manufacturer", {})
+    if isinstance(manufacturer, dict):
+        return (
+            manufacturer.get("name")
+            or manufacturer.get("en")
+            or manufacturer.get("abbr")
+            or ""
+        )
+    if isinstance(manufacturer, str):
+        return manufacturer
+    return ""
+
+def _componentManufacturer(component):
+    return (
+        component.get("manufacturer")
+        or _manufacturerFromExtra(component.get("extra", {}))
+        or _manufacturerFromExtra(component.get("jlc_extra", {}))
+        or ""
+    )
 
 class PartLibraryDb:
     def __init__(self, filepath=None):
@@ -82,8 +115,14 @@ class PartLibraryDb:
             """)
             migrated = True
 
+        if "jlc_extra" not in [x[1] for x in columns]:
+            self.conn.execute("""
+                ALTER TABLE components ADD COLUMN jlc_extra TEXT NOT NULL DEFAULT '{}';
+            """)
+            migrated = True
+
         if migrated:
-            self.conn.execute("DROP VIEW v_components")
+            self.conn.execute("DROP VIEW IF EXISTS v_components")
 
         self.conn.execute("""
             CREATE INDEX IF NOT EXISTS components_category
@@ -124,7 +163,8 @@ class PartLibraryDb:
                     c.stock AS stock,
                     c.last_on_stock as last_on_stock,
                     c.price AS price,
-                    c.extra AS extra
+                    c.extra AS extra,
+                    c.jlc_extra AS jlc_extra
                 FROM components c
                 LEFT JOIN manufacturers m ON c.manufacturer_id = m.id
                 LEFT JOIN categories cat ON c.category_id = cat.id
@@ -187,7 +227,7 @@ class PartLibraryDb:
 
     def getCategoryId(self, category, subcategory):
         c = (category, subcategory)
-        catId = self.manufacturerCache.get(c, None)
+        catId = self.categoryCache.get(c, None)
         if catId is not None:
             return catId
         catId = self.conn.execute("""
@@ -211,6 +251,23 @@ class PartLibraryDb:
         self.categoryCache[c] = catId
         return catId
 
+    def getOrCreateManufacturerId(self, manufacturer):
+        cur = self.conn.cursor()
+        manId = self.manufacturerCache.get(manufacturer, None)
+        if manId is None:
+            manId = cur.execute("""
+                SELECT id FROM manufacturers WHERE name = ?
+                """, (manufacturer,)).fetchone()
+            if manId is not None:
+                manId = manId[0]
+        if manId is None:
+            cur.execute("""
+                INSERT INTO manufacturers (name) VALUES (?)
+                """, (manufacturer,))
+            manId = cur.lastrowid
+        self.manufacturerCache[manufacturer] = manId
+        return manId
+
     def getCategoryComponents(self, category, subcategory, stockNewerThan=None):
         """
         Return an iterable of category components that have been in stock in the
@@ -229,44 +286,42 @@ class PartLibraryDb:
 
     def addComponent(self, component, flag=None):
         cur = self.conn.cursor()
-        m = component["manufacturer"]
-        manId = self.manufacturerCache.get(m, None)
-        if manId is None:
-            manId = cur.execute("""
-                SELECT id FROM manufacturers WHERE name = ?
-                """, (m,)).fetchone()
-            if manId is not None:
-                manId = manId[0]
-        if manId is None:
-            cur.execute("""
-                INSERT INTO manufacturers (name) VALUES (?)
-                """,(m,))
-            manId = cur.lastrowid
-        self.manufacturerCache[m] = manId
+        manId = self.getOrCreateManufacturerId(_componentManufacturer(component))
 
         catId = self.getOrCreateCategoryId(component["category"], component["subcategory"])
 
         c = component
+        lastOnStock = int(time.time()) if int(c["stock"]) != 0 else 0
         data = [lcscToDb(c["lcsc"]), catId, c["mfr"], c["package"], c["joints"], manId,
                 c["basic"], c["description"], c["datasheet"], c["stock"],
-                json.dumps(c["price"]), int(time.time()), json.dumps(c["extra"])]
+                json.dumps(c["price"]), int(time.time()), lastOnStock, json.dumps(c["extra"]),
+                json.dumps(c.get("jlc_extra", {}))]
         if flag is not None:
             data.append(flag)
         cur.execute(f"""
             INSERT INTO components
                 (lcsc, category_id, mfr, package, joints, manufacturer_id,
-                basic, description, datasheet, stock, price, last_update,
-                extra {', flag' if flag is not None else ''})
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? {', ?' if flag is not None else ''})
+                basic, description, datasheet, stock, price, last_update, last_on_stock,
+                extra, jlc_extra {', flag' if flag is not None else ''})
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? {', ?' if flag is not None else ''})
             """, data)
         self._commit()
 
     def updateExtra(self, lcsc, extra):
+        manufacturer = _manufacturerFromExtra(extra)
+        manId = self.getOrCreateManufacturerId(manufacturer) if manufacturer else None
         self.conn.execute(f"""
             UPDATE components
-            SET extra = ?, last_update = ?
+            SET extra = ?,
+                last_update = ?
+                {', manufacturer_id = ?' if manId is not None else ''}
             WHERE lcsc = ?
-            """, (json.dumps(extra), int(time.time()), lcscToDb(lcsc)))
+            """, (
+                json.dumps(extra),
+                int(time.time()),
+                *([manId] if manId is not None else []),
+                lcscToDb(lcsc)
+            ))
         self._commit()
 
     def updateJlcPart(self, component, flag=None):
@@ -275,6 +330,7 @@ class PartLibraryDb:
         """
         c = component
         stock = int(c["stock"])
+        cursor = self.conn.cursor()
 
         data = [c["mfr"],
                 c["package"],
@@ -283,14 +339,26 @@ class PartLibraryDb:
                 c["description"],
                 c["datasheet"],
                 stock,
-                json.dumps(c["price"])]
+                json.dumps(c["price"]),
+                json.dumps(c.get("jlc_extra", {}))]
         if flag is not None:
             data.append(flag)
         if stock != 0:
             data.append(int(time.time()))
+        manufacturer = _componentManufacturer(c)
+        currentManufacturer = cursor.execute("""
+            SELECT m.name
+            FROM components c
+            LEFT JOIN manufacturers m ON c.manufacturer_id = m.id
+            WHERE c.lcsc = ?
+            """, (lcscToDb(c["lcsc"]),)).fetchone()
+        updateManufacturer = manufacturer and (
+            currentManufacturer is None or not currentManufacturer["name"]
+        )
+        if updateManufacturer:
+            data.append(self.getOrCreateManufacturerId(manufacturer))
         data.append(lcscToDb(c["lcsc"]))
 
-        cursor = self.conn.cursor()
         res = cursor.execute(f"""
             UPDATE components
             SET mfr = ?,
@@ -300,9 +368,11 @@ class PartLibraryDb:
                 description = ?,
                 datasheet = ?,
                 stock = ?,
-                price = ?
+                price = ?,
+                jlc_extra = ?
                 {', flag = ?' if flag is not None else ''}
                 {', last_on_stock = ?' if stock != 0 else ''}
+                {', manufacturer_id = ?' if updateManufacturer else ''}
             WHERE lcsc = ?
             """, data)
         self._commit()
@@ -333,6 +403,19 @@ class PartLibraryDb:
     def getNOldest(self, count):
         cursor = self.conn.cursor()
         result = cursor.execute("SELECT lcsc FROM components ORDER BY last_update ASC LIMIT ?", (count,))
+        return map(lambda x: lcscFromDb(x["lcsc"]), result)
+
+    def getMissingExtra(self, count):
+        if count == 0:
+            return []
+        cursor = self.conn.cursor()
+        result = cursor.execute("""
+            SELECT lcsc
+            FROM components
+            WHERE extra IS NULL OR extra = '' OR extra = '{}'
+            ORDER BY last_update ASC
+            LIMIT ?
+            """, (count,))
         return map(lambda x: lcscFromDb(x["lcsc"]), result)
 
 
@@ -421,6 +504,12 @@ def loadPartLibrary(file):
     lib = json.load(file)
     checkLibraryStructure(lib)
     return lib
+
+def _csvDictReader(file):
+    sample = file.read(4096)
+    file.seek(0)
+    dialect = csv.Sniffer().sniff(sample, delimiters=",;")
+    return csv.DictReader(file, dialect=dialect)
 
 def parsePrice(priceString):
     prices = []
@@ -521,7 +610,7 @@ def getLcscExtraNew(lcscNumber, retries=10):
         raise e from None
 
 def loadJlcTable(file):
-    reader = csv.DictReader(file, delimiter=',', quotechar='"')
+    reader = _csvDictReader(file)
     return { x["LCSC Part"]: {
                 "lcsc": x["LCSC Part"],
                 "category": x["First Category"],
@@ -534,11 +623,12 @@ def loadJlcTable(file):
                 "description": x["Description"],
                 "datasheet": x["Datasheet"],
                 "stock": int(x["Stock"]),
-                "price": parsePrice(x["Price"])
+                "price": parsePrice(x["Price"]),
+                "jlc_extra": _jsonLoadsDict(x.get("JLCPCB Extra"))
             }   for x in reader }
 
 def loadJlcTableLazy(file):
-    reader = csv.DictReader(file, delimiter=',', quotechar='"')
+    reader = _csvDictReader(file)
     return map( lambda x: {
                 "lcsc": x["LCSC Part"],
                 "category": x["First Category"],
@@ -551,5 +641,6 @@ def loadJlcTableLazy(file):
                 "description": x["Description"],
                 "datasheet": x["Datasheet"],
                 "stock": int(x["Stock"]),
-                "price": parsePrice(x["Price"])
+                "price": parsePrice(x["Price"]),
+                "jlc_extra": _jsonLoadsDict(x.get("JLCPCB Extra"))
             }, reader )

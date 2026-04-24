@@ -173,22 +173,53 @@ def normalizeAttributeKey(key):
         key = key.replace("(Ohms)", "").strip()
     if key == "aristor Voltage(Min)":
         key = "Varistor Voltage(Min)"
-    if key in ["ESR (Equivalent Series Resistance)", "Equivalent Series   Resistance(ESR)"] or key.startswith("Equivalent Series Resistance"):
+    if key in ["ESR (Equivalent Series Resistance)", "Equivalent Series   Resistance(ESR)",
+            "Equivalent Series Resistance(ESR)"] or key.startswith("Equivalent Series Resistance"):
         key = "Equivalent Series Resistance"
-    if key in ["Allowable Voltage(Vdc)", "Voltage - Max", "Rated Voltage"] or key.startswith("Voltage Rated"):
+    if key in ["Allowable Voltage(Vdc)", "Voltage - Max", "Rated Voltage",
+            "Voltage Rating"] or key.startswith("Voltage Rated"):
         key = "Allowable Voltage"
-    if key in ["DC Resistance (DCR)", "DC Resistance (DCR) (Max)", "DCR( Ω Max )"]:
+    if key in ["DC Resistance (DCR)", "DC Resistance (DCR) (Max)", "DCR( Ω Max )",
+            "DC Resistance(DCR)"]:
         key = "DC Resistance"
     if key in ["Insertion Loss ( dB Max )", "Insertion Loss (Max)"]:
         key = "Insertion Loss (dB Max)"
-    if key in ["Current Rating (Max)", "Rated Current"]:
+    if key in ["Current Rating (Max)", "Rated Current", "Current Rating"]:
         key = "Rated current"
+    if key == "Current - Saturation (Isat)":
+        key = "Saturation Current (Isat)"
     if key == "Power - Max":
         key = "Power"
+    if key == "Pd - Power Dissipation":
+        key = "Power Dissipation (Pd)"
     if key == "Voltage - Breakover":
         key = "Voltage - Breakdown (Min)"
     if key == "Gate Threshold Voltage-VGE(th)":
         key = "Vgs(th) (Max) @ Id"
+    if key in ["Gate Threshold Voltage (Vgs(th))", "Gate Threshold Voltage (Vgs(th)@Id)"]:
+        key = "Gate Threshold Voltage (Vgs(th)@Id)"
+    if key == "Current - Continuous Drain(Id)":
+        key = "Continuous Drain Current (Id)"
+    if key == "Rds(on)":
+        key = "Drain Source On Resistance (RDS(on)@Vgs,Id)"
+    if key == "Input Capacitance(Ciss)":
+        key = "Input Capacitance (Ciss@Vds)"
+    if key == "Output Capacitance(Coss)":
+        key = "Output Capacitance (Coss@Vds)"
+    if key == "Gate Charge(Qg)":
+        key = "Total Gate Charge (Qg@Vgs)"
+    if key == "Voltage - DC Reverse(Vr)":
+        key = "Voltage - DC Reverse (Vr) (Max)"
+    if key == "Voltage - Forward(Vf@If)":
+        key = "Voltage - Forward (Vf) (Max) @ If"
+    if key == "Current - Rectified":
+        key = "Rectified Current"
+    if key == "Impedance(Zzt)":
+        key = "Zener Impedance (Zzt)"
+    if key == "Zener Voltage(Nom)":
+        key = "Zener Voltage (Nom)"
+    if key == "Zener Voltage(Range)":
+        key = "Zener Voltage (Range)"
     if key == "Pins Structure":
         key = "Pin Structure"
     if key.startswith("Lifetime @ Temp"):
@@ -202,7 +233,7 @@ def pullExtraAttributes(component):
     Turn common properties (e.g., base/extended) into attributes. Return them as
     a dictionary
     """
-    status = "Discontinued" if component["extra"] == {} else "Active"
+    status = "Discontinued" if component["extra"] == {} and component.get("jlc_extra", {}) == {} else "Active"
     type = "Extended"
     if component["basic"]:
         type = "Basic"
@@ -218,31 +249,53 @@ def crushImages(images):
     if not images:
         return None
     firstImg = images[0]
-    img = firstImg.popitem()[1].rsplit("/", 1)[1]
+    imageUrls = [value for value in firstImg.values() if isinstance(value, str)]
+    if not imageUrls:
+        return None
+    img = imageUrls[0].rsplit("/", 1)[1]
     # make sure every url ends the same
-    assert all(i.rsplit("/", 1)[1] == img for i in firstImg.values())
+    assert all(i.rsplit("/", 1)[1] == img for i in imageUrls)
     return img
 
 def trimLcscUrl(url, lcsc):
     if url is None:
         return None
     slug = url[url.rindex("/") + 1 : url.rindex("_")]
-    assert f"https://lcsc.com/product-detail/{slug}_{lcsc}.html" == url
+    if url.startswith("http"):
+        assert url.endswith(f"/product-detail/{slug}_{lcsc}.html")
     return slug
+
+def _extraAttributes(extra):
+    if "attributes" in extra:
+        attr = extra.get("attributes", {})
+    else:
+        attr = extra
+    if isinstance(attr, list):
+        return {}
+    return attr or {}
+
+def _jlcAttributes(jlcExtra):
+    if not isinstance(jlcExtra, dict):
+        return {}
+    attr = jlcExtra.get("attributes", {})
+    if isinstance(attr, list):
+        return {}
+    return attr or {}
+
+def _mergeAttributes(component):
+    attr = dict(_extraAttributes(component.get("extra", {})))
+    for key, value in _jlcAttributes(component.get("jlc_extra", {})).items():
+        if value in ["", "-"]:
+            continue
+        attr[key] = value
+    return attr
 
 def extractComponent(component, schema):
     try:
         propertyList = []
         for schItem in schema:
             if schItem == "attributes":
-                # The cache might be in the old format
-                if "attributes" in component.get("extra", {}):
-                    attr = component.get("extra", {}).get("attributes", {})
-                else:
-                    attr = component.get("extra", {})
-                if isinstance(attr, list):
-                    # LCSC return empty attributes as a list, not dictionary
-                    attr = {}
+                attr = _mergeAttributes(component)
                 attr.update(pullExtraAttributes(component))
                 weakUpdateParameters(attr, extractAttributesFromDescription(component["description"]))
 

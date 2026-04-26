@@ -9,6 +9,7 @@ from jlcparts.datatables import buildtables, normalizeAttribute
 from jlcparts.lcsc import pullPreferredComponents
 from jlcparts.partLib import (PartLibrary, PartLibraryDb, getLcscExtraNew,
                               loadJlcTable, loadJlcTableLazy, parsePrice)
+from jlcparts.webdb import buildwebdb
 
 
 def fetchLcscData(lcsc):
@@ -301,6 +302,7 @@ cli.add_command(getLibrary)
 cli.add_command(listcategories)
 cli.add_command(listattributes)
 cli.add_command(buildtables)
+cli.add_command(buildwebdb)
 cli.add_command(updatePreferred)
 cli.add_command(fetchDetails)
 cli.add_command(fetchDb)

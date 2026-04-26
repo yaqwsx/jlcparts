@@ -283,16 +283,48 @@ class PartLibraryDb:
         Return an iterable of category components that have been in stock in the
         last stockNewerThan
         """
+        return list(self.iterCategoryComponents(category, subcategory, stockNewerThan))
+
+    def countCategoryComponents(self, category, subcategory, stockNewerThan=None):
         catId = self.getCategoryId(category, subcategory)
+        if catId is None:
+            return 0
         if stockNewerThan is None:
-            result = self.conn.cursor().execute("""
+            result = self.conn.execute("""
+                SELECT COUNT()
+                FROM components
+                WHERE category_id = ?
+                """, (catId,))
+        else:
+            result = self.conn.execute("""
+                SELECT COUNT()
+                FROM components
+                WHERE category_id = ? and last_on_stock > ?
+                """, (catId, int(time.time()) - stockNewerThan * 24 * 3600))
+        return result.fetchone()[0]
+
+    def iterCategoryComponents(self, category, subcategory, stockNewerThan=None, fetchSize=1000):
+        """
+        Yield category components lazily. This is the memory-safe variant used by
+        the frontend table builder for large subcategories.
+        """
+        catId = self.getCategoryId(category, subcategory)
+        if catId is None:
+            return
+        if stockNewerThan is None:
+            cursor = self.conn.cursor().execute("""
                 SELECT * FROM v_components WHERE category_id = ?
                 """, (catId,))
         else:
-            result = self.conn.cursor().execute("""
+            cursor = self.conn.cursor().execute("""
                 SELECT * FROM v_components WHERE category_id = ? and last_on_stock > ?
                 """, (catId, int(time.time()) - stockNewerThan * 24 * 3600))
-        return list(map(dbToComp, result))
+        while True:
+            rows = cursor.fetchmany(fetchSize)
+            if not rows:
+                break
+            for row in rows:
+                yield dbToComp(row)
 
     def addComponent(self, component, flag=None):
         cur = self.conn.cursor()

@@ -1,11 +1,10 @@
-import dataclasses
+import hashlib
 import re
 import os
 import shutil
 import json
 import datetime
 import gzip
-import multiprocessing
 from pathlib import Path
 
 import click
@@ -357,48 +356,120 @@ def clearDir(directory):
             shutil.rmtree(file_path)
 
 
-@dataclasses.dataclass
-class MapCategoryParams:
-    libraryPath: str
-    outdir: str
-    ignoreoldstock: int
+WEB_FILE_FORMAT_VERSION = 2
+LOOKUP_BUCKET_SIZE_DEFAULT = 100000
+MAX_COMPONENTS_PER_SHARD_DEFAULT = 20000
+COMPONENT_ROW_SCHEMA = {
+    "lcsc": 0,
+    "mfr": 1,
+    "joints": 2,
+    "description": 3,
+    "datasheet": 4,
+    "price": 5,
+    "img": 6,
+    "url": 7,
+    "attributes": 8,
+    "stock": 9,
+    "subcategory": 10,
+}
+COMPONENT_SOURCE_SCHEMA = [
+    "lcsc",
+    "mfr",
+    "joints",
+    "description",
+    "datasheet",
+    "price",
+    "img",
+    "url",
+    "attributes",
+    "stock",
+]
 
-    catName: str
-    subcatName: str
+
+def _stableComponentFilebase(catName, subcatName):
+    base = f"{catName}__{subcatName}"
+    base = base.replace("&", "and").replace("/", "aka")
+    base = re.sub(r"[^A-Za-z0-9]+", "_", base).strip("_")
+    digest = hashlib.sha1(f"{catName}\0{subcatName}".encode("utf-8")).hexdigest()[:8]
+    return f"{base}__{digest}".lower()
 
 
-def _map_category(val: MapCategoryParams):
-    # Sometimes, JLC PCB doesn't fill in the category names. Ignore such
-    # components.
-    if val.catName.strip() == "":
-        return None
-    if val.subcatName.strip() == "":
-        return None
-    
-    lib = PartLibraryDb(val.libraryPath)
-    components = lib.getCategoryComponents(val.catName, val.subcatName, stockNewerThan=val.ignoreoldstock)
-    if not components:
-        return None
+def _writeJsonArtifact(data, filename, compress=False):
+    openFn = gzip.open if compress else open
+    with openFn(filename, "wt", encoding="utf-8") as f:
+        json.dump(data, f, separators=(",", ":"), sort_keys=True)
+    return sha256file(filename)
 
-    filebase = val.catName + val.subcatName
-    filebase = filebase.replace("&", "and").replace("/", "aka")
-    filebase = re.sub('[^A-Za-z0-9]', '_', filebase)
 
-    dataTable = buildDatatable(components)
-    dataTable.update({"category": val.catName, "subcategory": val.subcatName})
-    dataHash = saveJson(dataTable, os.path.join(val.outdir, f"{filebase}.json.gz"),
-                        hash=True, compress=True)
+def _writeJsonLinesArtifact(rows, filename):
+    with gzip.open(filename, "wt", encoding="utf-8") as f:
+        for row in rows:
+            json.dump(row, f, separators=(",", ":"), sort_keys=False)
+            f.write("\n")
+    return sha256file(filename)
 
-    stockTable = buildStocktable(components)
-    stockHash = saveJson(stockTable, os.path.join(val.outdir, f"{filebase}.stock.json"), hash=True)
 
-    return {
-        "catName": val.catName,
-        "subcatName": val.subcatName,
-        "sourcename": filebase,
-        "datahash": dataHash,
-        "stockhash": stockHash
+def _lookupBucketForLcsc(lcsc, bucketSize):
+    return int(lcsc[1:]) // bucketSize
+
+
+def _isUsableCategory(catName, subcatName):
+    return catName.strip() != "" and subcatName.strip() != ""
+
+
+def _componentRows(components, subcategoryId, attributeLut):
+    rows = [COMPONENT_ROW_SCHEMA]
+    for component in components:
+        values = extractComponent(component, COMPONENT_SOURCE_SCHEMA)
+        attrIds = [
+            updateLut(attributeLut, [name, value])
+            for name, value in values[COMPONENT_ROW_SCHEMA["attributes"]].items()
+        ]
+        rows.append([
+            values[COMPONENT_ROW_SCHEMA["lcsc"]],
+            values[COMPONENT_ROW_SCHEMA["mfr"]],
+            values[COMPONENT_ROW_SCHEMA["joints"]],
+            values[COMPONENT_ROW_SCHEMA["description"]],
+            values[COMPONENT_ROW_SCHEMA["datasheet"]],
+            values[COMPONENT_ROW_SCHEMA["price"]],
+            values[COMPONENT_ROW_SCHEMA["img"]],
+            values[COMPONENT_ROW_SCHEMA["url"]],
+            attrIds,
+            values[COMPONENT_ROW_SCHEMA["stock"]],
+            subcategoryId,
+        ])
+    return rows
+
+
+def _flushComponentShard(chunk, shardName, outdir, subcategoryId, attributeLut,
+                         files, lookupBuckets, lookupBucketSize):
+    shardRows = _componentRows(chunk, subcategoryId, attributeLut)
+    shardPath = os.path.join(outdir, shardName)
+    shardHash = _writeJsonLinesArtifact(shardRows, shardPath)
+    files[shardName] = {
+        "name": shardName,
+        "kind": "components",
+        "sha256": shardHash,
+        "componentCount": len(chunk),
+        "subcategoryId": subcategoryId,
     }
+    for component in chunk:
+        bucket = _lookupBucketForLcsc(component["lcsc"], lookupBucketSize)
+        lookupBuckets.setdefault(bucket, {})[component["lcsc"]] = shardName
+
+
+def _lutToEntries(lutMap):
+    entries = [None] * len(lutMap)
+    for key, value in lutMap.items():
+        entries[value] = json.loads(key)
+    return entries
+
+
+def updateLut(lutMap, item):
+    key = json.dumps(item, separators=(",", ":"), sort_keys=True)
+    if key not in lutMap:
+        lutMap[key] = len(lutMap)
+    return lutMap[key]
 
 @click.command()
 @click.argument("library", type=click.Path(dir_okay=False))
@@ -407,41 +478,126 @@ def _map_category(val: MapCategoryParams):
     help="Ignore components that weren't on stock for more than n days")
 @click.option("--jobs", type=int, default=1,
     help="Number of parallel processes. Defaults to 1, set to 0 to use all cores")
-def buildtables(library, outdir, ignoreoldstock, jobs):
+@click.option("--max-components-per-shard", type=int, default=MAX_COMPONENTS_PER_SHARD_DEFAULT,
+    show_default=True,
+    help="Maximum number of components stored in a single frontend shard")
+@click.option("--lookup-bucket-size", type=int, default=LOOKUP_BUCKET_SIZE_DEFAULT,
+    show_default=True,
+    help="Number of LCSC numeric codes stored in a single lookup shard")
+def buildtables(library, outdir, ignoreoldstock, jobs, max_components_per_shard, lookup_bucket_size):
     """
     Build datatables out of the LIBRARY and save them in OUTDIR
     """
     lib = PartLibraryDb(library)
     Path(outdir).mkdir(parents=True, exist_ok=True)
     clearDir(outdir)
+    del jobs  # kept for CLI compatibility with the previous builder
 
+    categories = lib.categories()
+    sortedCategories = [
+        (catName, sorted(subcategories))
+        for catName, subcategories in sorted(categories.items())
+    ]
+    total = sum(
+        1
+        for catName, subcategories in sortedCategories
+        for subcatName in subcategories
+        if _isUsableCategory(catName, subcatName)
+    )
+    processed = 0
 
-    total = lib.countCategories()
-    categoryIndex = {}
+    files = {}
+    categoryEntries = []
+    attributeLut = {}
+    lookupBuckets = {}
+    totalComponents = 0
+    categoryId = 0
 
-    params = []
-    for (catName, subcategories) in lib.categories().items():
+    for catName, subcategories in sortedCategories:
         for subcatName in subcategories:
-            params.append(MapCategoryParams(
-                libraryPath=library, outdir=outdir, ignoreoldstock=ignoreoldstock,
-                catName=catName, subcatName=subcatName))
-
-    with multiprocessing.Pool(jobs or multiprocessing.cpu_count()) as pool:
-        for i, result in enumerate(pool.imap_unordered(_map_category, params)):
-            if result is None:
+            if not _isUsableCategory(catName, subcatName):
                 continue
-            catName, subcatName = result["catName"], result["subcatName"]
-            print(f"{((i) / total * 100):.2f} % {catName}: {subcatName}")
-            if catName not in categoryIndex:
-                categoryIndex[catName] = {}
-            assert subcatName not in categoryIndex[catName]
-            categoryIndex[catName][subcatName] = {
-                "sourcename": result["sourcename"],
-                "datahash": result["datahash"],
-                "stockhash": result["stockhash"]
-            }
-    index = {
-        "categories": categoryIndex,
-        "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()
+            processed += 1
+            componentCount = lib.countCategoryComponents(
+                catName,
+                subcatName,
+                stockNewerThan=ignoreoldstock
+            )
+            if componentCount == 0:
+                continue
+
+            categoryId += 1
+            categoryKey = _stableComponentFilebase(catName, subcatName)
+            shardNames = []
+            totalComponents += componentCount
+            print(f"{((processed - 1) / max(total, 1) * 100):.2f} % {catName}: {subcatName} ({componentCount})")
+
+            chunk = []
+            shardIndex = 0
+            for component in lib.iterCategoryComponents(
+                    catName, subcatName, stockNewerThan=ignoreoldstock,
+                    fetchSize=max(1000, min(max_components_per_shard, 5000))):
+                chunk.append(component)
+                if len(chunk) < max_components_per_shard:
+                    continue
+                shardIndex += 1
+                shardName = f"components-{categoryKey}-{shardIndex:03d}.jsonl.gz"
+                _flushComponentShard(
+                    chunk, shardName, outdir, categoryId, attributeLut,
+                    files, lookupBuckets, lookup_bucket_size
+                )
+                shardNames.append(shardName)
+                chunk = []
+
+            if chunk:
+                shardIndex += 1
+                shardName = f"components-{categoryKey}-{shardIndex:03d}.jsonl.gz"
+                _flushComponentShard(
+                    chunk, shardName, outdir, categoryId, attributeLut,
+                    files, lookupBuckets, lookup_bucket_size
+                )
+                shardNames.append(shardName)
+
+            categoryEntries.append({
+                "id": categoryId,
+                "category": catName,
+                "subcategory": subcatName,
+                "componentCount": componentCount,
+                "shards": shardNames,
+            })
+
+    attributesLutFilename = "attributes-lut.json.gz"
+    attributesLutPath = os.path.join(outdir, attributesLutFilename)
+    attributesLutHash = _writeJsonArtifact(_lutToEntries(attributeLut), attributesLutPath, compress=True)
+    files[attributesLutFilename] = {
+        "name": attributesLutFilename,
+        "kind": "attributes-lut",
+        "sha256": attributesLutHash,
+        "entryCount": len(attributeLut),
     }
-    saveJson(index, os.path.join(outdir, "index.json"), hash=True)
+
+    lookupFiles = {}
+    for bucket, mapping in sorted(lookupBuckets.items()):
+        lookupName = f"lookup-{bucket:05d}.json.gz"
+        lookupPath = os.path.join(outdir, lookupName)
+        lookupHash = _writeJsonArtifact(mapping, lookupPath, compress=True)
+        files[lookupName] = {
+            "name": lookupName,
+            "kind": "lookup",
+            "sha256": lookupHash,
+            "bucket": bucket,
+            "entryCount": len(mapping),
+        }
+        lookupFiles[str(bucket)] = lookupName
+
+    manifest = {
+        "version": WEB_FILE_FORMAT_VERSION,
+        "created": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat(),
+        "totalComponents": totalComponents,
+        "lookupBucketSize": lookup_bucket_size,
+        "attributesLut": attributesLutFilename,
+        "categories": categoryEntries,
+        "lookupBuckets": lookupFiles,
+        "files": files,
+    }
+    _writeJsonArtifact(manifest, os.path.join(outdir, "manifest.json"), compress=False)

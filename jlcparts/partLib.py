@@ -146,6 +146,12 @@ class PartLibraryDb:
             UNIQUE (id, category, subcategory)
             )""")
         self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS jlcpcb_component_details (
+                lcsc INTEGER PRIMARY KEY NOT NULL,
+                fetched_at INTEGER NOT NULL,
+                payload TEXT NOT NULL
+            )""")
+        self.conn.execute("""
             CREATE VIEW IF NOT EXISTS v_components AS
                 SELECT
                     c.lcsc AS lcsc,
@@ -193,6 +199,10 @@ class PartLibraryDb:
         return self.conn.execute("SELECT COUNT() FROM categories").fetchone()[0]
 
     def removeWithFlag(self, value=1):
+        self.conn.execute("""
+            DELETE FROM jlcpcb_component_details
+            WHERE lcsc IN (SELECT lcsc FROM components WHERE flag = ?)
+            """, (value,))
         self.conn.execute("DELETE FROM components WHERE flag = ?", (value,))
         self._commit()
 
@@ -305,6 +315,7 @@ class PartLibraryDb:
                 extra, jlc_extra {', flag' if flag is not None else ''})
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? {', ?' if flag is not None else ''})
             """, data)
+        self._storeJlcRawPayload(c["lcsc"], c.get("jlc_raw"))
         self._commit()
 
     def updateExtra(self, lcsc, extra):
@@ -375,6 +386,7 @@ class PartLibraryDb:
                 {', manufacturer_id = ?' if updateManufacturer else ''}
             WHERE lcsc = ?
             """, data)
+        self._storeJlcRawPayload(c["lcsc"], c.get("jlc_raw"))
         self._commit()
 
     def setPreferred(self, lcscSet):
@@ -397,8 +409,36 @@ class PartLibraryDb:
         return res
 
     def delete(self, lcscNumber):
+        self.conn.execute("DELETE FROM jlcpcb_component_details WHERE lcsc = ?",
+                          (lcscToDb(lcscNumber),))
         self.conn.execute("DELETE FROM components WHERE lcsc = ?", (lcscToDb(lcscNumber),))
         self._commit()
+
+    def _storeJlcRawPayload(self, lcscNumber, payload):
+        if not isinstance(payload, dict) or not payload:
+            return
+        self.conn.execute("""
+            INSERT INTO jlcpcb_component_details (lcsc, fetched_at, payload)
+            VALUES (?, ?, ?)
+            ON CONFLICT(lcsc) DO UPDATE
+            SET fetched_at = excluded.fetched_at,
+                payload = excluded.payload
+            """, (
+                lcscToDb(lcscNumber),
+                int(time.time()),
+                json.dumps(payload, separators=(",", ":"), sort_keys=True)
+            ))
+
+    def getJlcRawPayload(self, lcscNumber):
+        result = self.conn.execute("""
+            SELECT payload
+            FROM jlcpcb_component_details
+            WHERE lcsc = ?
+            LIMIT 1
+            """, (lcscToDb(lcscNumber),)).fetchone()
+        if result is None:
+            return {}
+        return _jsonLoadsDict(result["payload"])
 
     def getNOldest(self, count):
         cursor = self.conn.cursor()

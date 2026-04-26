@@ -273,7 +273,15 @@ class JlcPcbInterface:
         if limit is not None:
             componentList = componentList[:limit]
         codes = [component["componentCode"] for component in componentList]
-        return self._getComponentDetails(codes)
+        details = self._getComponentDetails(codes)
+        detailsByCode = {component["componentCode"]: component for component in details}
+        return [
+            {
+                **componentSummary,
+                **detailsByCode[componentSummary["componentCode"]],
+            }
+            for componentSummary in componentList
+        ]
 
 def dummyReporter(progress) -> None:
     return

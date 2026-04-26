@@ -50,7 +50,8 @@ def apiComponentToDbComponent(component):
         "datasheet": c["datasheet"],
         "stock": int(c["stock"]),
         "price": parsePrice(c["price"]),
-        "jlc_extra": c["jlcExtra"]
+        "jlc_extra": c["jlcExtra"],
+        "jlc_raw": component,
     }
 
 @click.command()

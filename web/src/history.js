@@ -1,5 +1,5 @@
 import React from 'react';
-import { fetchJson, db } from './db'
+import { fetchJson, getCategories, getComponentByLcsc } from './db'
 import { Spinbox, InlineSpinbox, ZoomableLazyImage,
          formatAttribute, findCategoryById, getImageUrl,
          restoreLcscUrl } from './componentTable'
@@ -19,7 +19,7 @@ class HistoryItem extends React.Component {
     }
 
     componentDidMount() {
-        db.components.get({lcsc: this.props.lcsc}).then( component => {
+        getComponentByLcsc(this.props.lcsc).then(component => {
             this.setState({info: component});
         });
     }
@@ -151,8 +151,9 @@ class HistoryTable extends React.Component {
                 }
                 log.sort((a, b) => b.day - a.day);
                 this.setState({table: log});
-            });
-        db.categories.toArray().then( categories => this.setState({categories}) );
+            })
+            .catch(() => this.setState({table: []}));
+        getCategories().then(categories => this.setState({categories}));
     }
 
     render() {

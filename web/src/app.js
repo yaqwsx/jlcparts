@@ -12,7 +12,13 @@ import { far } from '@fortawesome/free-regular-svg-icons'
 import { fab } from '@fortawesome/free-brands-svg-icons'
 
 import './main.css';
-import { updateComponentLibrary, checkForComponentLibraryUpdate, db } from './db'
+import {
+  updateComponentLibrary,
+  checkForComponentLibraryUpdate,
+  hasLocalComponentLibrary,
+  getComponentCount,
+  db
+} from './db'
 import { ComponentOverview } from './componentTable'
 import { History } from './history'
 
@@ -74,18 +80,19 @@ class FirstTimeNote extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      hasLibrary: undefined,
       componentCount: undefined
     };
   }
 
   componentDidMount() {
-    db.components.count().then(x => {
-      this.setState({componentCount: x});
-    })
+    Promise.all([hasLocalComponentLibrary(), getComponentCount()]).then(([hasLibrary, componentCount]) => {
+      this.setState({hasLibrary, componentCount});
+    });
   }
 
   render() {
-    if (this.state.componentCount === undefined || this.state.componentCount !== 0)
+    if (this.state.hasLibrary === undefined || this.state.hasLibrary)
       return null;
     return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
       <p>
@@ -95,34 +102,7 @@ class FirstTimeNote extends React.Component {
         and use the app.
       </p>
       <p>
-        Note that the initial download of the component library might take a while.
-      </p>
-    </div>
-  }
-}
-
-class NewComponentFormatWarning extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      newComponentFormat: true
-    };
-  }
-
-  componentDidMount() {
-    db.components.toCollection().first().then(x => {
-      if (x !== undefined && typeof x.attributes[Object.keys(x.attributes)[0]] !== 'object')
-        this.setState({newComponentFormat: false});
-    });
-  }
-
-  render() {
-    if (this.state.newComponentFormat)
-      return null;
-    return <div className="w-full p-8 my-2 bg-yellow-400 rounded">
-      <p>
-        Hey, there have been some breaking changes to the library format.
-        Please, update the library before continuing to use the tool.
+        The initial metadata download is small, and component shards are cached on demand.
       </p>
     </div>
   }
@@ -277,7 +257,6 @@ class App extends React.Component {
           <UpdateBar onTriggerUpdate={this.triggerUpdate}/>
           <Header/>
           <FirstTimeNote/>
-          <NewComponentFormatWarning/>
           <Navbar/>
               <Switch>
                   <Route exact path="/">

@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { getCategories, queryComponents } from "./db";
 import React from "react";
 import { produce, enableMapSet } from "immer";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -36,14 +36,6 @@ function attributeComparator(x, y, valueType) {
         getValue(x.values[valueType]),
         getValue(y.values[valueType])
     );
-}
-
-function componentText(component) {
-    return(
-        component.lcsc + " " +
-        component.mfr + " " +
-        component.description
-    ).toLocaleLowerCase();
 }
 
 export function formatAttribute(attribute) {
@@ -165,12 +157,12 @@ export class ComponentOverview extends React.Component {
     }
 
     componentDidMount() {
-        db.categories.toArray().then( categories => {
+        getCategories().then(categories => {
             this.setState({
                 categories: this.prepareCategories(categories),
                 rawCategories: categories
             });
-        })
+        });
     }
 
     prepareCategories(sourceCategories) {
@@ -538,7 +530,7 @@ export class ComponentOverview extends React.Component {
     }
 }
 
-export function findCategoryById(categories, id) {
+export function findCategoryById(categories = [], id) {
     return categories.find(category => category.id === id) ?? {
         category: "unknown",
         subcategory: "unknown"
@@ -644,32 +636,14 @@ class CategoryFilter extends React.Component {
     // full-text search
     async components() {
         this.state.abort();
-        let query;
-        if (this.state.allCategories) {
-            if (this.state.searchString.length < 3) { // prevent high ram usage
-                return [];
-            }
-            query = db.components;
-        }
-        else
-            query = db.components.where("category").anyOf(this.collectActiveCategories());
-
-        if (this.state.searchString.length !== 0) {
-            const words = this.state.searchString.split(/\s+/)
-                .filter(x => x.length > 0)
-                .map(x => x.toLocaleLowerCase());
-            if (words.length > 0) {
-                query = query.filter(component => {
-                    const text = componentText(component);
-                    return words.every(word => text.includes(word));
-                });
-            }
-        }
-
         let aborted = false;
         this.setState({abort: () => aborted = true});
-        const components = await query.until(() => aborted).toArray();
-        return aborted ? null : components;
+        return await queryComponents({
+            categoryIds: this.collectActiveCategories(),
+            allCategories: this.state.allCategories,
+            searchString: this.state.searchString,
+            checkAbort: () => aborted
+        });
     }
 
     handleCategoryChange = (category, value) => {

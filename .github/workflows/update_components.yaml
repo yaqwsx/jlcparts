@@ -4,6 +4,11 @@ on:
   pull_request:
   schedule:
     - cron: '0 3 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: update-components-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build_and_update:
     name: "Update component database and frontend"
@@ -31,7 +36,7 @@ jobs:
           if [ $GITHUB_REPOSITORY = 'yaqwsx/jlcparts-dev' ]; then
             echo 'jlcparts-dev.honzamrazek.cz' > build/CNAME
           fi
-          touch .nojekyll
+          touch build/.nojekyll
       - name: Update database
         env: # Or as an environment variable
           LCSC_KEY: ${{ secrets.LCSC_KEY }}
@@ -50,15 +55,34 @@ jobs:
           fi
           export DATAURL=${BASEURL}/data
 
-          wget -q ${DATAURL}/cache.zip
-          for seq in $(seq -f "%02g" 1 99) $(seq 100 200); do
-            wget -q ${DATAURL}/cache.z$seq || true
-          done
+          if wget -q ${DATAURL}/cache.zip; then
+            downloaded_parts=()
+            part=1
+            while true; do
+              if [ "$part" -le 99 ]; then
+                suffix=$(printf "%02d" "$part")
+              else
+                suffix="$part"
+              fi
+              name="cache.z${suffix}"
+              if wget -q "${DATAURL}/${name}"; then
+                downloaded_parts+=("${name}")
+                part=$((part + 1))
+                continue
+              fi
+              rm -f "${name}"
+              break
+            done
 
-          7z x cache.zip
-          for seq in $(seq -f "%02g" 1 99) $(seq 100 200); do
-            rm -f cache.z$seq || true
-          done
+            7z x cache.zip
+            rm -f cache.zip
+            if [ ${#downloaded_parts[@]} -gt 0 ]; then
+              rm -f "${downloaded_parts[@]}"
+            fi
+          else
+            rm -f cache.zip
+            echo "No published cache found, bootstrapping a fresh database"
+          fi
 
           wget -q ${DATAURL}/parts.checkpoint.json || rm -f parts.checkpoint.json
 

@@ -602,11 +602,45 @@ def parsePrice(priceString):
 
 
 def normalizeUrlPart(part):
+    if part is None:
+        return ""
+    if not isinstance(part, str):
+        part = str(part)
     return (part
         .replace("(", "")
         .replace(")", "")
         .replace(" ", "-")
         .replace("/", "-")
+    )
+
+
+def _nestedString(value, *path):
+    for key in path:
+        if not isinstance(value, dict):
+            return ""
+        value = value.get(key)
+    return normalizeUrlPart(value)
+
+
+def _buildLcscProductUrl(params):
+    catalogName = _nestedString(params, "category", "name2")
+    manufacturer = _nestedString(params, "manufacturer", "name")
+    product = _nestedString(params, "title")
+    number = params.get("number") if isinstance(params, dict) else None
+    if number is None:
+        number = ""
+    elif not isinstance(number, str):
+        number = str(number)
+
+    if not all([catalogName, manufacturer, product, number]):
+        return None
+
+    return (
+        "https://lcsc.com/product-detail/"
+        f"{urllib.parse.quote_plus(catalogName)}_"
+        f"{urllib.parse.quote_plus(manufacturer)}-"
+        f"{urllib.parse.quote_plus(product)}_"
+        f"{urllib.parse.quote_plus(number)}.html"
     )
 
 class FetchError(RuntimeError):
@@ -666,11 +700,9 @@ def getLcscExtraNew(lcscNumber, retries=10):
                 with open(CACHE_PATH / f"{lcscNumber}.json", "w") as f:
                     json.dump(resJson, f)
 
-        catalogName = urllib.parse.quote_plus(normalizeUrlPart(params["category"]["name2"]))
-        man = urllib.parse.quote_plus(normalizeUrlPart(params["manufacturer"]["name"]))
-        product = urllib.parse.quote_plus(normalizeUrlPart(params["title"]))
-        code = urllib.parse.quote_plus(params["number"])
-        params["url"] = f"https://lcsc.com/product-detail/{catalogName}_{man}-{product}_{code}.html"
+        url = _buildLcscProductUrl(params)
+        if url is not None:
+            params["url"] = url
 
         return params
     except TimeoutError as e:

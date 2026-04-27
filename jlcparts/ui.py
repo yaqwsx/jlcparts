@@ -13,8 +13,11 @@ from jlcparts.webdb import buildwebdb
 
 
 def fetchLcscData(lcsc):
-    extra = getLcscExtraNew(lcsc)
-    return (lcsc, extra)
+    try:
+        extra = getLcscExtraNew(lcsc)
+        return (lcsc, extra, None)
+    except Exception as e:
+        return (lcsc, None, f"{type(e).__name__}: {e}")
 
 def refreshExtraData(db, missing, age, limit):
     missing = set(missing)
@@ -30,7 +33,10 @@ def refreshExtraData(db, missing, age, limit):
         return
 
     with Pool(processes=10) as pool:
-        for i, (lcsc, extra) in enumerate(pool.imap_unordered(fetchLcscData, missing)):
+        for i, (lcsc, extra, error) in enumerate(pool.imap_unordered(fetchLcscData, missing)):
+            if error is not None:
+                print(f"  {lcsc} skipped. {((i+1) / len(missing) * 100):.2f} % ({error})")
+                continue
             print(f"  {lcsc} fetched. {((i+1) / len(missing) * 100):.2f} %")
             db.updateExtra(lcsc, extra)
 

@@ -96,7 +96,7 @@ Feel free to open an issue on GitHub.
 - [KiKit](https://github.com/yaqwsx/KiKit): a tool for automatic panelization of
   KiCAD PCBs. It can also perform fully automatic export of manufacturing data
   for JLC PCB assembly - read [the
-  documentation](https://github.com/yaqwsx/KiKit/blob/master/doc/fabrication/jlcpcb.md)
+  documentation](https://github.com/yaqwsx/KiKit/blob/master/docs/fabrication/jlcpcb.md)
   or produce a solder-paste stencil for populating components missing at JLC PCB - read [the
   documentation](https://github.com/yaqwsx/KiKit/blob/master/doc/stencil.md).
 - [PcbDraw](https://github.com/yaqwsx/PcbDraw): a tool for making nice schematic

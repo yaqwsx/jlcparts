@@ -24,6 +24,8 @@ JLCPCB_COMPONENT_DETAIL_PATH = "/overseas/openapi/component/getComponentDetailBy
 JLCPCB_WEBSITE_API_HOST = "https://jlcpcb.com/api/overseas-pcb-order/v1"
 JLCPCB_WEBSITE_COMPONENT_LIST_PATH = "/shoppingCart/smtGood/selectSmtComponentList/v2"
 JLCPCB_WEBSITE_COMPONENT_DETAIL_PATH = "/shoppingCart/smtGood/getComponentDetail"
+JLCPCB_WEBSITE_PAGE_SIZE = 1000
+JLCPCB_WEBSITE_RESULT_WINDOW = 100000
 
 JLC_COMPONENT_TABLE_HEADER = [
     "LCSC Part",
@@ -274,6 +276,210 @@ def _website_component_enrichment(component_code: str) -> dict:
         "leastPatchNumber": combined.get("leastPatchNumber"),
         "minPurchaseNum": combined.get("minPurchaseNum"),
     }
+
+
+def _website_price_ranges(component: dict) -> List[dict]:
+    return [
+        {
+            "startQuantity": price.get("startNumber"),
+            "endQuantity": price.get("endNumber"),
+            "unitPrice": price.get("productPrice"),
+        }
+        for price in component.get("componentPrices", [])
+    ]
+
+
+def websiteComponentToPayload(component: dict) -> dict:
+    """
+    Convert a JLCPCB component-shop result to the OpenAPI-shaped payload used
+    by SourceDb.
+
+    The website names its category levels in the opposite order to OpenAPI:
+    firstSortName is the subcategory and secondSortName is the parent category.
+    """
+    return {
+        "componentCode": component.get("componentCode"),
+        "firstTypeName": component.get("secondSortName") or "",
+        "secondTypeName": component.get("firstSortName") or "",
+        "componentModel": (
+            component.get("componentModelEn")
+            or component.get("componentModel")
+            or ""
+        ),
+        "componentSpecification": (
+            component.get("componentSpecificationEn")
+            or component.get("componentSpecification")
+            or ""
+        ),
+        "solderJointCount": component.get("solderJointCount", 0) or 0,
+        "manufacturer": (
+            component.get("componentBrandEn")
+            or component.get("componentBrand")
+            or ""
+        ),
+        "libraryType": (
+            component.get("componentLibraryType")
+            or component.get("libraryType")
+            or ""
+        ),
+        "description": (
+            component.get("describe")
+            or component.get("description")
+            or ""
+        ),
+        "dataManualUrl": component.get("dataManualUrl"),
+        "dataManualFileAccessIdUrl": component.get("dataManualFileAccessIdUrl"),
+        "dataManualOfficialLink": component.get("dataManualOfficialLink"),
+        "stockCount": component.get("stockCount", 0) or 0,
+        "priceRanges": _website_price_ranges(component),
+        "parameters": component.get("parameters") or [],
+        "rohsFlag": component.get("rohsFlag"),
+        "assemblyComponentFlag": component.get("assemblyComponentFlag"),
+        "websiteComponentId": component.get("componentId"),
+        "componentSource": component.get("componentSource"),
+        "isBuyComponent": component.get("isBuyComponent"),
+    }
+
+
+def _website_stock_category_segments() -> List[dict]:
+    data = _website_api_post(JLCPCB_WEBSITE_COMPONENT_LIST_PATH, {
+        "currentPage": 1,
+        "pageSize": 0,
+        "keyword": "",
+        "searchSource": "search",
+        "searchType": 1,
+        "presaleType": "stock",
+        "stockFlag": True,
+        "componentBrandList": [],
+        "componentSpecificationList": [],
+        "componentAttributeList": [],
+        "paramList": [],
+    })
+
+    segments = []
+    for parent in data.get("sortAndCountVoList", []):
+        parent_id = parent.get("componentSortKeyId")
+        parent_count = int(parent.get("componentCount", 0) or 0)
+        if parent_id is None or parent_count == 0:
+            continue
+
+        if parent_count <= JLCPCB_WEBSITE_RESULT_WINDOW:
+            segments.append({
+                "parent_id": parent_id,
+                "child_id": None,
+                "component_count": parent_count,
+            })
+            continue
+
+        child_count = 0
+        for child in parent.get("childSortList", []):
+            count = int(child.get("componentCount", 0) or 0)
+            child_count += count
+            if count == 0:
+                continue
+            if count > JLCPCB_WEBSITE_RESULT_WINDOW:
+                raise RuntimeError(
+                    "JLC website category exceeds the result window: "
+                    f"{parent.get('sortName')} / {child.get('sortName')} "
+                    f"has {count} components"
+                )
+            segments.append({
+                "parent_id": parent_id,
+                "child_id": child.get("componentSortKeyId"),
+                "component_count": count,
+            })
+
+        if child_count != parent_count:
+            raise RuntimeError(
+                "JLC website category cannot be completely partitioned: "
+                f"{parent.get('sortName')} has {parent_count} components, "
+                f"but its subcategories contain {child_count}"
+            )
+    return segments
+
+
+class JlcWebsiteInterface:
+    def __init__(self, pageSize: int = JLCPCB_WEBSITE_PAGE_SIZE,
+                 segmentIndex: int = 0, currentPage: int = 1,
+                 segments: Optional[List[dict]] = None) -> None:
+        self.pageSize = pageSize
+        self.segments = (
+            _website_stock_category_segments()
+            if segments is None
+            else segments
+        )
+        self.segmentIndex = segmentIndex
+        self.currentPage = currentPage
+        self.done = self.segmentIndex >= len(self.segments)
+
+    def _payload(self, segment: dict) -> dict:
+        payload = {
+            "currentPage": self.currentPage,
+            "pageSize": self.pageSize,
+            "keyword": "",
+            "searchSource": "search",
+            "searchType": 2,
+            "presaleType": "stock",
+            "stockFlag": True,
+            "productTypeIdList": [segment["parent_id"]],
+            "componentBrandList": [],
+            "componentSpecificationList": [],
+            "componentAttributeList": [],
+            "paramList": [],
+        }
+        if segment.get("child_id") is not None:
+            payload["componentTypeIdList"] = [segment["child_id"]]
+        return payload
+
+    def getPage(self) -> Optional[List[Any]]:
+        if self.done:
+            return None
+
+        while self.segmentIndex < len(self.segments):
+            segment = self.segments[self.segmentIndex]
+            data = _website_api_post(
+                JLCPCB_WEBSITE_COMPONENT_LIST_PATH,
+                self._payload(segment),
+            )
+            page_info = data.get("componentPageInfo")
+            if not isinstance(page_info, dict):
+                raise RuntimeError(
+                    "JLC website returned no component page for "
+                    f"category {segment['parent_id']}/{segment.get('child_id')}"
+                )
+
+            components = page_info.get("list") or []
+            page_number = int(page_info.get("pageNum", self.currentPage) or 0)
+            page_count = int(page_info.get("pages", 0) or 0)
+            if components and page_number != self.currentPage:
+                raise RuntimeError(
+                    f"JLC website returned page {page_number}, "
+                    f"expected {self.currentPage}"
+                )
+
+            if not components or page_number >= page_count:
+                self.segmentIndex += 1
+                self.currentPage = 1
+                self.done = self.segmentIndex >= len(self.segments)
+            else:
+                self.currentPage += 1
+
+            if components:
+                return [
+                    websiteComponentToPayload(component)
+                    for component in components
+                ]
+
+        self.done = True
+        return None
+
+
+def createWebsiteComponentInterface(segmentIndex: int = 0,
+                                    currentPage: int = 1) -> JlcWebsiteInterface:
+    return JlcWebsiteInterface(
+        segmentIndex=segmentIndex,
+        currentPage=currentPage,
+    )
 
 
 def _apply_website_enrichment(component: dict, enrichment: dict) -> dict:

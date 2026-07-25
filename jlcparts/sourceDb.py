@@ -377,6 +377,12 @@ class SourceDb:
             SELECT lcsc FROM jlc_components WHERE lcsc = ? LIMIT 1
             """, (lcscToDb(lcscNumber),)).fetchone() is not None
 
+    def getSyncFlag(self, lcscNumber):
+        row = self.conn.execute("""
+            SELECT sync_seen FROM jlc_components WHERE lcsc = ? LIMIT 1
+            """, (lcscToDb(lcscNumber),)).fetchone()
+        return None if row is None else int(row["sync_seen"])
+
     def updateJlcPayload(self, payload, flag=1):
         row = _jlcSourceFromPayload(payload)
         self._upsertJlc(row, present=1, syncSeen=flag)

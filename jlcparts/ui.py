@@ -135,9 +135,9 @@ def fetchDb(db, checkpoint, max_seconds, age, limit, retries, retry_delay, verbo
     """
     from .jlcpcb import (
         createComponentInterface,
+        createWebsiteComponentInterface,
         enrichComponentsFromWebsite,
         loadCheckpoint,
-        writeCheckpoint,
     )
 
     if max_seconds is not None and checkpoint is None:
@@ -149,7 +149,7 @@ def fetchDb(db, checkpoint, max_seconds, age, limit, retries, retry_delay, verbo
     lib = SourceDb(db)
     checkpointState = loadCheckpoint(checkpoint)
     count = int(checkpointState.get("count", 0))
-    done = False
+    phase = checkpointState.get("phase", "openapi")
     missing = set()
 
     if checkpointState.get("done"):
@@ -161,43 +161,115 @@ def fetchDb(db, checkpoint, max_seconds, age, limit, retries, retry_delay, verbo
         with lib.startTransaction():
             lib.resetFlag(value=OLD)
 
-    interf = createComponentInterface(lastKey=checkpointState.get("lastKey"))
     start = time.monotonic()
 
-    while True:
-        if max_seconds is not None and time.monotonic() - start >= max_seconds:
-            writeCheckpoint(checkpoint, db, interf.lastPage, count, False)
-            break
+    def writeFetchCheckpoint(lastKey=None, websiteSegment=0, websitePage=1):
+        if checkpoint is None:
+            return
+        data = {
+            "version": 2,
+            "filename": db,
+            "count": count,
+            "phase": phase,
+            "lastKey": lastKey,
+            "websiteSegment": websiteSegment,
+            "websitePage": websitePage,
+            "done": False,
+            "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        tmp = f"{checkpoint}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+            f.write("\n")
+        os.replace(tmp, checkpoint)
 
-        for i in range(retries):
-            try:
-                page = interf.getPage()
+    def timeExpired():
+        return (
+            max_seconds is not None
+            and time.monotonic() - start >= max_seconds
+        )
+
+    if phase == "openapi":
+        interf = createComponentInterface(lastKey=checkpointState.get("lastKey"))
+        while True:
+            if timeExpired():
+                writeFetchCheckpoint(lastKey=interf.lastPage)
                 break
-            except Exception as e:
-                if i == retries - 1:
-                    raise e from None
-                time.sleep(retry_delay)
-        if page is None:
+
+            for i in range(retries):
+                try:
+                    page = interf.getPage()
+                    break
+                except Exception as e:
+                    if i == retries - 1:
+                        raise e from None
+                    time.sleep(retry_delay)
+            if page is None:
+                phase = "website"
+                writeFetchCheckpoint()
+                break
+
+            page = enrichComponentsFromWebsite(page)
+
             with lib.startTransaction():
-                lib.removeWithFlag(value=OLD)
-            if checkpoint and os.path.exists(checkpoint):
-                os.remove(checkpoint)
-            done = True
-            break
+                for apiComponent in page:
+                    isNew = not lib.exists(apiComponent["componentCode"])
+                    lib.updateJlcPayload(apiComponent, flag=REFRESHED)
+                    if isNew:
+                        missing.add(apiComponent["componentCode"])
 
-        page = enrichComponentsFromWebsite(page)
+            count += len(page)
+            if verbose:
+                print(f"Fetched {count} OpenAPI components")
+            writeFetchCheckpoint(lastKey=interf.lastPage)
 
-        with lib.startTransaction():
-            for apiComponent in page:
-                isNew = not lib.exists(apiComponent["componentCode"])
-                lib.updateJlcPayload(apiComponent, flag=REFRESHED)
-                if isNew:
-                    missing.add(apiComponent["componentCode"])
+    done = False
+    if phase == "website" and not timeExpired():
+        websiteInterf = createWebsiteComponentInterface(
+            segmentIndex=int(checkpointState.get("websiteSegment", 0) or 0),
+            currentPage=int(checkpointState.get("websitePage", 1) or 1),
+        )
+        while True:
+            if timeExpired():
+                writeFetchCheckpoint(
+                    websiteSegment=websiteInterf.segmentIndex,
+                    websitePage=websiteInterf.currentPage,
+                )
+                break
 
-        count += len(page)
-        if verbose:
-            print(f"Fetched {count}")
-        writeCheckpoint(checkpoint, db, interf.lastPage, count, False)
+            for i in range(retries):
+                try:
+                    page = websiteInterf.getPage()
+                    break
+                except Exception as e:
+                    if i == retries - 1:
+                        raise e from None
+                    time.sleep(retry_delay)
+            if page is None:
+                with lib.startTransaction():
+                    lib.removeWithFlag(value=OLD)
+                if checkpoint and os.path.exists(checkpoint):
+                    os.remove(checkpoint)
+                done = True
+                break
+
+            with lib.startTransaction():
+                for component in page:
+                    syncFlag = lib.getSyncFlag(component["componentCode"])
+                    if syncFlag == REFRESHED:
+                        continue
+                    isNew = syncFlag is None
+                    lib.updateJlcPayload(component, flag=REFRESHED)
+                    if isNew:
+                        missing.add(component["componentCode"])
+
+            count += len(page)
+            if verbose:
+                print(f"Fetched {count} combined components")
+            writeFetchCheckpoint(
+                websiteSegment=websiteInterf.segmentIndex,
+                websitePage=websiteInterf.currentPage,
+            )
 
     refreshExtraData(lib, missing, age, limit)
     if verbose:

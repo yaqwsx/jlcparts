@@ -201,6 +201,7 @@ def _jlcSourceFromPayload(payload, lcsc=None):
         "assembly": payload.get("assemblyComponentFlag"),
         "assembly_process": payload.get("assemblyProcess"),
         "assembly_mode": payload.get("assemblyMode"),
+        "component_product_type": payload.get("componentProductType"),
         "website_component_id": payload.get("websiteComponentId"),
         "attrition": attrition,
     }
@@ -300,6 +301,7 @@ class SourceDb:
                 assembly INTEGER,
                 assembly_process TEXT,
                 assembly_mode TEXT,
+                component_product_type INTEGER,
                 website_component_id TEXT,
                 attrition TEXT NOT NULL
             );
@@ -314,6 +316,7 @@ class SourceDb:
             );
         """)
         self._ensureColumn("jlc_components", "sync_seen", "INTEGER NOT NULL DEFAULT 0")
+        self._ensureColumn("jlc_components", "component_product_type", "INTEGER")
         self.conn.execute("""
             INSERT INTO meta(key, value) VALUES ('format', ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
@@ -390,13 +393,13 @@ class SourceDb:
                 mfr, package, joints, manufacturer, library_type, preferred,
                 last_on_stock,
                 description, datasheet, stock, price, attributes, rohs, eccn,
-                assembly, assembly_process, assembly_mode, website_component_id,
-                attrition
+                assembly, assembly_process, assembly_mode, component_product_type,
+                website_component_id, attrition
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(
                     (SELECT preferred FROM jlc_components WHERE lcsc = ?), 0),
                 COALESCE(?, (SELECT last_on_stock FROM jlc_components WHERE lcsc = ?), 0),
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(lcsc) DO UPDATE SET
                 fetched_at = excluded.fetched_at,
                 present = excluded.present,
@@ -422,6 +425,7 @@ class SourceDb:
                 assembly = excluded.assembly,
                 assembly_process = excluded.assembly_process,
                 assembly_mode = excluded.assembly_mode,
+                component_product_type = excluded.component_product_type,
                 website_component_id = excluded.website_component_id,
                 attrition = excluded.attrition
             """, (
@@ -435,6 +439,7 @@ class SourceDb:
                 None if row["assembly"] is None else int(bool(row["assembly"])),
                 row["assembly_process"],
                 row["assembly_mode"],
+                row["component_product_type"],
                 None if row["website_component_id"] is None else str(row["website_component_id"]),
                 _jsonDumps(row["attrition"]),
             ))
@@ -570,6 +575,7 @@ class SourceDb:
             "assembly": None if row["assembly"] is None else bool(row["assembly"]),
             "assemblyProcess": row["assembly_process"],
             "assemblyMode": row["assembly_mode"],
+            "componentProductType": row["component_product_type"],
             "websiteComponentId": row["website_component_id"],
             "attrition": _jsonLoadsDict(row["attrition"]),
             "attributes": jlcAttrs,

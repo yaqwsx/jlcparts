@@ -7,6 +7,7 @@ from jlcparts.jlcpcb import (
     _website_component_enrichment,
     enrichComponentsFromWebsite,
 )
+from jlcparts.sourceDb import SourceDb
 
 
 class JlcWebsiteEnrichmentTest(unittest.TestCase):
@@ -38,6 +39,7 @@ class JlcWebsiteEnrichmentTest(unittest.TestCase):
                 "componentCode": "C11255",
                 "assemblyProcess": "THT",
                 "assemblyMode": "manualWeld",
+                "componentProductType": 2,
                 "lossNumber": 1,
                 "leastNumber": 2,
                 "leastPatchNumber": 2,
@@ -51,6 +53,7 @@ class JlcWebsiteEnrichmentTest(unittest.TestCase):
         self.assertEqual(enrichment["websiteComponentId"], 11806)
         self.assertEqual(enrichment["assemblyProcess"], "THT")
         self.assertEqual(enrichment["assemblyMode"], "manualWeld")
+        self.assertEqual(enrichment["componentProductType"], 2)
         self.assertEqual(enrichment["lossNumber"], 1)
         self.assertEqual(enrichment["leastNumber"], 2)
         self.assertEqual(enrichment["leastPatchNumber"], 2)
@@ -69,6 +72,7 @@ class JlcWebsiteEnrichmentTest(unittest.TestCase):
             "assemblyComponentFlag": False,
             "assemblyProcess": "SMT",
             "assemblyMode": "smtWeld",
+            "componentProductType": 0,
             "websiteComponentId": 1443,
             "lossNumber": 10,
             "leastNumber": 20,
@@ -79,6 +83,7 @@ class JlcWebsiteEnrichmentTest(unittest.TestCase):
 
         self.assertEqual(extra["assemblyProcess"], "SMT")
         self.assertEqual(extra["assemblyMode"], "smtWeld")
+        self.assertEqual(extra["componentProductType"], 0)
         self.assertEqual(extra["websiteComponentId"], 1443)
         self.assertEqual(extra["attrition"]["lossNumber"], 10)
         self.assertEqual(extra["attributes"]["Assembly Process"], "SMT")
@@ -98,6 +103,25 @@ class JlcWebsiteEnrichmentTest(unittest.TestCase):
             normalized_key, normalized_value = normalizeAttribute(key, "12")
             self.assertEqual(normalized_key, key)
             self.assertEqual(normalized_value["values"]["count"], [12, "count"])
+
+    def test_component_product_type_survives_source_database_round_trip(self):
+        source_db = SourceDb(":memory:")
+        source_db.updateJlcPayload({
+            "componentCode": "C123",
+            "firstTypeName": "Test",
+            "secondTypeName": "Parts",
+            "componentModel": "TEST-123",
+            "componentSpecification": "SMD",
+            "stockCount": 1,
+            "libraryType": "Basic",
+            "componentProductType": 1,
+        })
+
+        components = list(source_db.iterCategoryComponents("Test", "Parts"))
+
+        self.assertEqual(len(components), 1)
+        self.assertEqual(components[0]["jlc_extra"]["componentProductType"], 1)
+        source_db.close()
 
 
 if __name__ == "__main__":

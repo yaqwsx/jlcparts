@@ -146,8 +146,14 @@ def fetchDb(db, checkpoint, max_seconds, age, limit, retries, retry_delay, verbo
     OLD = 0
     REFRESHED = 1
 
-    lib = SourceDb(db)
     checkpointState = loadCheckpoint(checkpoint)
+    if checkpointState and not os.path.exists(db):
+        raise RuntimeError(
+            f"Checkpoint {checkpoint} resumes a fetch into {db}, "
+            f"but {db} does not exist"
+        )
+
+    lib = SourceDb(db)
     count = int(checkpointState.get("count", 0))
     done = False
     missing = set()

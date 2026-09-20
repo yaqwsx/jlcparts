@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            python3 python3-pip nodejs npm wget zip unzip p7zip-full
+            python3 python3-pip nodejs npm curl wget zip unzip p7zip-full
           sudo pip3 install requests click
       - name: Checkout
         uses: actions/checkout@v6
@@ -58,7 +58,23 @@ jobs:
           fi
           export DATAURL=${BASEURL}/data
 
-          if wget -q ${DATAURL}/cache.zip; then
+          # Download a published file. Returns 1 only when the file does not
+          # exist (HTTP 404). Any other failure aborts the job, so a transient
+          # error is never mistaken for a missing cache.
+          fetch_published() {
+            local name="$1" code
+            code=$(curl -sS -L --retry 5 --retry-delay 10 --retry-all-errors \
+                        -o "${name}" -w '%{http_code}' "${DATAURL}/${name}") || code=000
+            case "$code" in
+              200) return 0 ;;
+              404) rm -f "${name}"; return 1 ;;
+              *) echo "Cannot download ${name}: HTTP ${code}"; exit 1 ;;
+            esac
+          }
+
+          have_cache=0
+          if fetch_published cache.zip; then
+            have_cache=1
             downloaded_parts=()
             part=1
             while true; do
@@ -68,12 +84,11 @@ jobs:
                 suffix="$part"
               fi
               name="cache.z${suffix}"
-              if wget -q "${DATAURL}/${name}"; then
+              if fetch_published "${name}"; then
                 downloaded_parts+=("${name}")
                 part=$((part + 1))
                 continue
               fi
-              rm -f "${name}"
               break
             done
 
@@ -83,7 +98,6 @@ jobs:
               rm -f "${downloaded_parts[@]}"
             fi
           else
-            rm -f cache.zip
             if [ "$WORKFLOW_EVENT_NAME" != "schedule" ]; then
               echo "No published cache found; only scheduled runs may fetch a fresh database from JLC"
               exit 1
@@ -96,7 +110,11 @@ jobs:
           fi
 
           if [ "$WORKFLOW_EVENT_NAME" = "schedule" ]; then
-            wget -q ${DATAURL}/parts.checkpoint.json || rm -f parts.checkpoint.json
+            # A fresh database must start from the beginning of the catalog,
+            # so the published checkpoint is only used with a published cache.
+            if [ "$have_cache" = 1 ]; then
+              fetch_published parts.checkpoint.json || true
+            fi
 
             fetch_seconds=${JLCPARTS_FETCH_SECONDS:-2400}
             lcsc_age=${JLCPARTS_LCSC_AGE:-10000}

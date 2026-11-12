@@ -9,7 +9,7 @@ from jlcparts.datatables import buildtables, normalizeAttribute
 from jlcparts.lcsc import pullPreferredComponents
 from jlcparts.partLib import (PartLibrary, PartLibraryDb, getLcscExtraNew,
                               loadJlcTable, loadJlcTableLazy, parsePrice)
-from jlcparts.sourceDb import SourceDb, migrateCache
+from jlcparts.sourceDb import SourceDb, mergeCache, migrateCache
 from jlcparts.webdb import buildwebdb
 
 
@@ -227,6 +227,18 @@ def migratecache(source, output):
 
 
 @click.command()
+@click.argument("db", type=click.Path(dir_okay=False, exists=True))
+@click.argument("other", type=click.Path(dir_okay=False, exists=True))
+def mergecache(db, other):
+    """
+    Add the components of OTHER that are missing from DB. Both must be
+    source-db-v2 caches.
+    """
+    jlcAdded, lcscAdded = mergeCache(db, other)
+    print(f"Added {jlcAdded} JLC and {lcscAdded} LCSC components from {other}")
+
+
+@click.command()
 @click.argument("libraryFilename")
 def listcategories(libraryfilename):
     """
@@ -326,6 +338,7 @@ cli.add_command(buildtables)
 cli.add_command(buildwebdb)
 cli.add_command(updatePreferred)
 cli.add_command(migratecache)
+cli.add_command(mergecache)
 cli.add_command(fetchDetails)
 cli.add_command(fetchDb)
 cli.add_command(fetchTable)

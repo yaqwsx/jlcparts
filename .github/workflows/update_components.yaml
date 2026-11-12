@@ -6,6 +6,12 @@ on:
     - cron: '0 3 * * *'
     - cron: '0 11 * * *'
     - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      merge_cache_from:
+        description: "gh-pages commit whose data/cache.zip is merged into the cache"
+        required: false
+        default: ""
 permissions:
   contents: write
 concurrency:
@@ -47,6 +53,7 @@ jobs:
           JLCPCB_ACCESS_KEY: ${{ secrets.JLCPCB_ACCESS_KEY }}
           JLCPCB_SECRET_KEY: ${{ secrets.JLCPCB_SECRET_KEY }}
           WORKFLOW_EVENT_NAME: ${{ github.event_name }}
+          MERGE_CACHE_FROM: ${{ inputs.merge_cache_from }}
         run: |
           set -x
           sudo pip3 install -e .
@@ -95,6 +102,21 @@ jobs:
             jlcparts migratecache cache.sqlite3
           fi
 
+          if [ -n "$MERGE_CACHE_FROM" ]; then
+            mergeurl=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${MERGE_CACHE_FROM}/data
+            mkdir merge
+            curl -sSfL --retry 5 -o merge/cache.zip "${mergeurl}/cache.zip"
+            part=1
+            while true; do
+              name=cache.z$(printf "%02d" "$part")
+              curl -sSfL --retry 5 -o "merge/${name}" "${mergeurl}/${name}" || { rm -f "merge/${name}"; break; }
+              part=$((part + 1))
+            done
+            (cd merge && 7z x cache.zip && rm -f cache.zip cache.z*)
+            jlcparts mergecache cache.sqlite3 merge/cache.sqlite3
+            rm -rf merge
+          fi
+
           if [ "$WORKFLOW_EVENT_NAME" = "schedule" ]; then
             wget -q ${DATAURL}/parts.checkpoint.json || rm -f parts.checkpoint.json
 
@@ -110,6 +132,10 @@ jobs:
             jlcparts updatepreferred cache.sqlite3
           else
             rm -f parts.checkpoint.json
+            if [ -n "$MERGE_CACHE_FROM" ]; then
+              # Let the next scheduled run resume the fetch in progress.
+              curl -sSfL --retry 5 -o parts.checkpoint.json ${DATAURL}/parts.checkpoint.json || rm -f parts.checkpoint.json
+            fi
           fi
 
           jlcparts buildtables --jobs 0 \

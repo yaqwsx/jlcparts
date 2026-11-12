@@ -260,6 +260,36 @@ def migrateCache(sourcePath, outputPath=None):
     return True
 
 
+def mergeCache(dbPath, otherPath):
+    for path in [dbPath, otherPath]:
+        if detectSourceDb(path) != SOURCE_DB_FORMAT:
+            raise RuntimeError(f"{path} is not a {SOURCE_DB_FORMAT} cache")
+
+    db = SourceDb(dbPath)
+    conn = db.conn
+    conn.execute("ATTACH DATABASE ? AS other", (otherPath,))
+    columns = [row["name"] for row in conn.execute("PRAGMA main.table_info(jlc_components)")]
+    # Merged rows are not marked as seen, so the fetch in progress removes
+    # the ones JLC no longer lists once it reaches the end of the catalog.
+    selected = ["0" if column == "sync_seen" else column for column in columns]
+    with conn:
+        jlcAdded = conn.execute(f"""
+            INSERT OR IGNORE INTO main.jlc_components ({", ".join(columns)})
+            SELECT {", ".join(selected)} FROM other.jlc_components
+            """).rowcount
+        lcscAdded = conn.execute("""
+            INSERT OR IGNORE INTO main.lcsc_components (
+                lcsc, fetched_at, manufacturer, attributes, image, url_slug
+            )
+            SELECT lcsc, fetched_at, manufacturer, attributes, image, url_slug
+            FROM other.lcsc_components
+            WHERE lcsc IN (SELECT lcsc FROM main.jlc_components)
+            """).rowcount
+    conn.execute("DETACH DATABASE other")
+    db.close()
+    return jlcAdded, lcscAdded
+
+
 class SourceDb:
     def __init__(self, filepath=None, create=True):
         self.conn = sqlite3.connect(filepath)

@@ -53,6 +53,7 @@ jobs:
           JLCPCB_ACCESS_KEY: ${{ secrets.JLCPCB_ACCESS_KEY }}
           JLCPCB_SECRET_KEY: ${{ secrets.JLCPCB_SECRET_KEY }}
           WORKFLOW_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_CACHE_FROM: ${{ inputs.merge_cache_from }}
         run: |
           set -x
@@ -98,8 +99,31 @@ jobs:
             echo "No published cache found, bootstrapping a fresh database"
           fi
 
+          count_rows() {
+            python3 -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT COUNT(*) FROM jlc_components").fetchone()[0])' "$1"
+          }
+
+          published_rows=0
           if [ -f cache.sqlite3 ]; then
             jlcparts migratecache cache.sqlite3
+            published_rows=$(count_rows cache.sqlite3)
+          fi
+
+          # Also read the deployed component count from gh-pages through the
+          # API, so the check before deploying does not depend on the cache
+          # download having worked.
+          code=$(curl -sS -L --retry 5 --retry-all-errors -o cache.rows -w '%{http_code}' \
+                      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                      -H "Accept: application/vnd.github.raw" \
+                      "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/data/cache.rows?ref=gh-pages") || code=000
+          case "$code" in
+            200) deployed_rows=$(cat cache.rows) ;;
+            404) deployed_rows=0 ;;
+            *) echo "Cannot read data/cache.rows from gh-pages: HTTP ${code}"; exit 1 ;;
+          esac
+          rm -f cache.rows
+          if [ "$deployed_rows" -gt "$published_rows" ]; then
+            published_rows=$deployed_rows
           fi
 
           if [ -n "$MERGE_CACHE_FROM" ]; then
@@ -138,6 +162,15 @@ jobs:
             fi
           fi
 
+          # A sudden drop means the cache was lost somewhere, not that JLC
+          # delisted a fifth of its catalog. Do not deploy it.
+          rows=$(count_rows cache.sqlite3)
+          echo "Components: ${published_rows} published, ${rows} now"
+          if [ $((rows * 5)) -lt $((published_rows * 4)) ]; then
+            echo "Refusing to deploy: more than 20% of the components disappeared"
+            exit 1
+          fi
+
           jlcparts buildtables --jobs 0 \
                                --ignoreoldstock 120 \
                                cache.sqlite3 web/build/data
@@ -145,6 +178,7 @@ jobs:
           if [ -f parts.checkpoint.json ]; then
             cp parts.checkpoint.json web/build/data/parts.checkpoint.json
           fi
+          echo "$rows" > web/build/data/cache.rows
 
           rm -f web/build/data/cache.z*
           zip -s 50m web/build/data/cache.zip cache.sqlite3
